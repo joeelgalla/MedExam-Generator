@@ -1,0 +1,5 @@
+{
+  "name": "MedExam Generator",
+  "description": "An AI-powered tool for medical educators to generate high-quality practice exams from lecture materials and learning objectives using the Gemini API.",
+  "requestFramePermissions": []
+}
