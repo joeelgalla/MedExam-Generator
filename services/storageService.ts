@@ -4,12 +4,16 @@ import { supabase } from '../lib/supabase';
 
 // --- PROJECT METHODS (Supabase PostgreSQL) ---
 
+// Postgres JSONB rejects NUL (\u0000); strip before save.
+const stripNulls = <T>(value: T): T =>
+  JSON.parse(JSON.stringify(value).replace(/\\u0000/g, ''));
+
 export const saveProject = async (project: Project): Promise<void> => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) throw new Error('Not authenticated');
 
-    const updatedProject = { ...project, lastModified: new Date().toISOString() };
+    const updatedProject = stripNulls({ ...project, lastModified: new Date().toISOString() });
 
     const { error } = await supabase.from('projects').upsert({
       id: project.id,

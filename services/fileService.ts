@@ -106,8 +106,8 @@ const readXlsx = async (file: File): Promise<string> => {
 
   workbook.SheetNames.forEach((sheetName: string) => {
     const worksheet = workbook.Sheets[sheetName];
-    // sheet_to_txt extracts tab-separated values, effectively converting the sheet to a readable text format
-    const sheetText = XLSX.utils.sheet_to_txt(worksheet);
+    // sheet_to_csv returns UTF-8; sheet_to_txt returns UTF-16 LE with NUL bytes which Postgres JSONB rejects.
+    const sheetText = XLSX.utils.sheet_to_csv(worksheet);
     if (sheetText.trim().length > 0) {
       text += `--- Sheet: ${sheetName} ---\n${sheetText}\n\n`;
     }
