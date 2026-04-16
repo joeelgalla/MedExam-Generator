@@ -10,7 +10,7 @@ import { generateExam, getQuestionSourceAnalysis } from './services/geminiServic
 import { saveProject, getAllProjects, deleteProject } from './services/storageService';
 import { supabase } from './lib/supabase';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
-import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalHigh, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings } from 'lucide-react'; // ADD SETTINGS ICON
+import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings } from 'lucide-react'; // ADD SETTINGS ICON
 import { useReactToPrint } from 'react-to-print';
 
 // --- CONFIGURATION ---
