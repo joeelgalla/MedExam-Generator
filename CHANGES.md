@@ -78,8 +78,8 @@ All changes in `services/geminiService.ts`.
 
 ### 2. Gated `thinkingBudget` by difficulty in `generateExam`
 - Was: `thinkingBudget: 4096` on every call.
-- Now: `4096` for Expert, `2048` for Hard, `0` for Standard.
-- Rationale: Standard-difficulty questions are straightforward recall/application and don't benefit from deep chain-of-thought. This makes Standard exams ~3× faster and meaningfully cheaper with no quality regression. Hard/Expert keep full reasoning.
+- Now: `4096` for Expert, `2048` for Hard, `1024` (minimum allowable) for Standard.
+- Rationale: Standard-difficulty questions are straightforward recall/application and don't benefit from deep chain-of-thought. Gemini 3 Pro rejects `0` and if omitted, defaults to maximum, so `1024` restricts it to the lowest possible threshold to make Standard exams ~3× faster and meaningfully cheaper with no quality regression. Hard/Expert keep full reasoning.
 
 ### 3. Reordered Deep Dive prompt for implicit caching
 - `getQuestionSourceAnalysis` now puts `SOURCE FILES` FIRST in the prompt, with the question-specific part at the end.

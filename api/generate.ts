@@ -61,23 +61,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const thinkingBudget = difficulty === 'expert' ? 4096 : difficulty === 'hard' ? 2048 : 0;
-
-    const configArgs: any = {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      maxOutputTokens: 32768,
-      responseMimeType: "application/json",
-    };
-
-    if (thinkingBudget > 0) {
-      configArgs.thinkingConfig = { thinkingBudget };
-    }
+    const thinkingBudget = difficulty === 'expert' ? 4096 : difficulty === 'hard' ? 2048 : 1024;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        ...configArgs,
+        systemInstruction: SYSTEM_INSTRUCTION,
+        thinkingConfig: { thinkingBudget },
+        maxOutputTokens: 32768,
+        responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
