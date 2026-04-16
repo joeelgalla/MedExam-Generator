@@ -61,14 +61,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const levelString = difficulty === 'expert' ? 'HIGH' : difficulty === 'hard' ? 'MEDIUM' : 'LOW';
+    const thinkingLevel = difficulty === 'expert'
+      ? ThinkingLevel.HIGH
+      : difficulty === 'hard'
+        ? ThinkingLevel.MEDIUM
+        : ThinkingLevel.LOW;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
-        thinkingConfig: { thinkingLevel: levelString },
+        thinkingConfig: { thinkingLevel },
         maxOutputTokens: 32768,
         responseMimeType: "application/json",
         responseSchema: {
