@@ -25,6 +25,12 @@ export enum QuestionSubtype {
   CriteriaOrScore = 'criteria_or_score',
   DomainMatching = 'domain_matching',
   PrognosisFactor = 'prognosis_factor',
+  IndicativeSignOrSymptom = 'indicative_sign_or_symptom',
+  SideEffectOrAdverseEffect = 'side_effect_or_adverse_effect',
+  DrugInteraction = 'drug_interaction',
+  EthicsOrConsent = 'ethics_or_consent',
+  PreventionFramework = 'prevention_framework',
+  SocialDeterminantsOrSystemNavigation = 'social_determinants_or_system_navigation',
 }
 
 export enum CognitiveLevel {

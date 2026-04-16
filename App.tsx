@@ -7,7 +7,8 @@ import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm'; // IMPORT PROJECT FORM
 import { generateExam, getQuestionSourceAnalysis } from './services/geminiService';
-import { saveProject, getAllProjects, deleteProject, registerUser, loginUser } from './services/storageService';
+import { saveProject, getAllProjects, deleteProject } from './services/storageService';
+import { supabase } from './lib/supabase';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
 import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalHigh, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings } from 'lucide-react'; // ADD SETTINGS ICON
 import { useReactToPrint } from 'react-to-print';
@@ -23,10 +24,12 @@ function App() {
   
   // Auth Inputs
   const [usernameInput, setUsernameInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   
   const [authError, setAuthError] = useState<string | null>(null);
@@ -45,27 +48,33 @@ function App() {
   const [activeTab, setActiveTab] = useState<'exam' | 'analytics'>('exam');
   const [isEditingProjectDetails, setIsEditingProjectDetails] = useState(false); // NEW STATE FOR EDIT MODAL
   
-  // --- Initialization ---
+  // --- Initialization (Supabase Auth) ---
   useEffect(() => {
     logEvent('session_start');
-    
-    // Check session storage
-    const sessionAuth = sessionStorage.getItem('medexam_auth');
-    const sessionUser = sessionStorage.getItem('medexam_user');
-    
-    if (sessionAuth === 'true' && sessionUser) {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const displayName = session.user.user_metadata?.display_name || session.user.email || 'User';
         setIsAuthenticated(true);
-        setCurrentUser(sessionUser);
-        setTelemetryUser(sessionUser); // Initialize Telemetry
-        
-        if (sessionUser.toLowerCase() === 'admin') {
+        setCurrentUser(displayName);
+        setCurrentUserId(session.user.id);
+        setTelemetryUser(displayName);
+
+        if (displayName.toLowerCase() === 'admin') {
             setIsAdmin(true);
         }
 
-        loadProjects(sessionUser);
-    } else {
+        loadProjects(session.user.id);
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setCurrentUserId(null);
+        setIsAdmin(false);
         setLoadingProjects(false);
-    }
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -73,70 +82,67 @@ function App() {
     setAuthError(null);
     setAuthSuccess(null);
 
-    const user = usernameInput.trim();
-    if (!user || !passwordInput) {
-        setAuthError("Please fill in all fields.");
-        return;
-    }
-
     if (authMode === 'register') {
+        const displayName = usernameInput.trim();
+        if (!displayName || !emailInput || !passwordInput) {
+            setAuthError("Please fill in all fields.");
+            return;
+        }
+
         if (inviteCodeInput !== BETA_INVITE_CODE) {
             setAuthError("Invalid Invite Code.");
             logEvent('beta_login_fail', { reason: 'invalid_invite_code' });
             return;
         }
 
-        const success = await registerUser(user, passwordInput);
-        if (success) {
-            setAuthSuccess("Account created! Please sign in.");
+        const { error } = await supabase.auth.signUp({
+            email: emailInput.trim(),
+            password: passwordInput,
+            options: {
+                data: { display_name: displayName }
+            }
+        });
+
+        if (error) {
+            setAuthError(error.message);
+            logEvent('beta_login_fail', { reason: error.message });
+        } else {
+            setAuthSuccess("Account created! You can now sign in.");
             setAuthMode('login');
             setPasswordInput('');
-            logEvent('user_registered', { username: user }); // Log registration
-        } else {
-            setAuthError("Username already taken.");
+            logEvent('user_registered', { username: displayName });
         }
     } else {
-        // Login Mode
-        const isValid = await loginUser(user, passwordInput);
-        
-        if (isValid) {
-            completeLogin(user);
-        } else {
-            setAuthError("Invalid username or password.");
-            logEvent('beta_login_fail', { reason: 'invalid_credentials', username: user });
+        if (!emailInput || !passwordInput) {
+            setAuthError("Please fill in all fields.");
+            return;
         }
+
+        const { error } = await supabase.auth.signInWithPassword({
+            email: emailInput.trim(),
+            password: passwordInput,
+        });
+
+        if (error) {
+            setAuthError(error.message);
+            logEvent('beta_login_fail', { reason: 'invalid_credentials', email: emailInput });
+        }
+        // On success, onAuthStateChange fires automatically
     }
   };
 
-  const completeLogin = (user: string) => {
-      setIsAuthenticated(true);
-      setCurrentUser(user);
-      setTelemetryUser(user);
-
-      sessionStorage.setItem('medexam_auth', 'true');
-      sessionStorage.setItem('medexam_user', user);
-      
-      if (user.toLowerCase() === 'admin') {
-          setIsAdmin(true);
-          logEvent('admin_action', { action: 'admin_login' });
-      } else {
-          logEvent('beta_login_success');
-      }
-      
-      loadProjects(user);
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     logEvent('feature_used', { feature: 'logout' });
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
     setCurrentUser(null);
+    setCurrentUserId(null);
     setIsAdmin(false);
     setActiveProject(null);
-    setTelemetryUser(null); 
-    sessionStorage.removeItem('medexam_auth');
-    sessionStorage.removeItem('medexam_user');
+    setTelemetryUser(null);
     setPasswordInput('');
     setUsernameInput('');
+    setEmailInput('');
     setAuthError(null);
   };
 
@@ -157,12 +163,12 @@ function App() {
   };
 
   const handleCreateProject = async (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number) => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
     
     logEvent('feature_used', { feature: 'create_project', referenceTotal });
     const newProject: Project = {
         id: crypto.randomUUID(),
-        userId: currentUser,
+        userId: currentUserId,
         name,
         description,
         lastModified: new Date().toISOString(),
@@ -186,7 +192,7 @@ function App() {
   };
   
   const handleImportProject = async (importedData: any) => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
 
     try {
         // Validate basic structure
@@ -198,7 +204,7 @@ function App() {
         const newProject: Project = {
             ...importedData,
             id: crypto.randomUUID(), // New ID to avoid conflicts
-            userId: currentUser, // Assign to current user
+            userId: currentUserId, // Assign to current user
             lastModified: new Date().toISOString(),
             name: `${importedData.name} (Imported)`, // Distinct name
             // Reset exam state so user starts fresh
@@ -517,7 +523,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                     value={inviteCodeInput}
                                     onChange={(e) => setInviteCodeInput(e.target.value)}
                                     className="w-full px-4 py-3 bg-white text-slate-900 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                    placeholder="Enter global code (medbeta)"
+                                    placeholder="Enter invite code"
                                     required={authMode === 'register'}
                                 />
                                 <Lock className="w-5 h-5 text-slate-400 absolute right-3 top-3.5" />
@@ -525,15 +531,32 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                         </div>
                     )}
 
+                    {authMode === 'register' && (
+                        <div className="animate-slideUp">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Display Name</label>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    value={usernameInput}
+                                    onChange={(e) => setUsernameInput(e.target.value)}
+                                    className="w-full px-4 py-3 bg-white text-slate-900 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    placeholder="e.g. DrSmith"
+                                    required
+                                />
+                                <User className="w-5 h-5 text-slate-400 absolute right-3 top-3.5" />
+                            </div>
+                        </div>
+                    )}
+
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                         <div className="relative">
                             <input 
-                                type="text" 
-                                value={usernameInput}
-                                onChange={(e) => setUsernameInput(e.target.value)}
+                                type="email" 
+                                value={emailInput}
+                                onChange={(e) => setEmailInput(e.target.value)}
                                 className="w-full px-4 py-3 bg-white text-slate-900 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                placeholder="e.g. DrSmith"
+                                placeholder="you@university.edu"
                                 required
                             />
                             <User className="w-5 h-5 text-slate-400 absolute right-3 top-3.5" />
@@ -553,7 +576,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                     setAuthError(null);
                                 }}
                                 className={`w-full px-4 py-3 bg-white text-slate-900 border rounded-xl outline-none focus:ring-2 transition-all ${authError ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-blue-500 focus:border-blue-500'}`}
-                                placeholder={authMode === 'register' ? 'Set a personal password' : 'Enter your password'}
+                                placeholder={authMode === 'register' ? 'Min 6 characters' : 'Enter your password'}
                                 required
                             />
                             <Key className="w-5 h-5 text-slate-400 absolute right-3 top-3.5" />
@@ -581,7 +604,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                     
                     {authMode === 'register' && (
                         <p className="text-xs text-slate-400 text-center mt-2">
-                            Passwords are stored locally on your device.
+                            Your data is stored securely in the cloud.
                         </p>
                     )}
                 </form>

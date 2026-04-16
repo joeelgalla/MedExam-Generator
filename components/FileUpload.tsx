@@ -14,17 +14,17 @@ interface FileUploadProps {
 }
 
 interface ProcessingFile {
-    id: string;
-    file: File;
-    status: 'processing' | 'error';
-    error?: string;
+  id: string;
+  file: File;
+  status: 'processing' | 'error';
+  error?: string;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ 
-  id, 
-  files, 
-  onFilesChanged, 
-  title = "Upload Files", 
+const FileUpload: React.FC<FileUploadProps> = ({
+  id,
+  files,
+  onFilesChanged,
+  title = "Upload Files",
   description = "PDF, DOCX, PPTX, XLSX, TXT, Images, or Audio/Video (MP3, MP4)",
   className = ""
 }) => {
@@ -33,42 +33,42 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const [processingFiles, setProcessingFiles] = useState<ProcessingFile[]>([]);
 
   const processFiles = async (newFiles: File[]) => {
-      if (newFiles.length === 0) return;
+    if (newFiles.length === 0) return;
 
-      // 1. Create temporary entries
-      const newProcessingItems: ProcessingFile[] = newFiles.map(f => ({
-          id: crypto.randomUUID(),
-          file: f,
-          status: 'processing'
-      }));
+    // 1. Create temporary entries
+    const newProcessingItems: ProcessingFile[] = newFiles.map(f => ({
+      id: crypto.randomUUID(),
+      file: f,
+      status: 'processing'
+    }));
 
-      setProcessingFiles(prev => [...prev, ...newProcessingItems]);
+    setProcessingFiles(prev => [...prev, ...newProcessingItems]);
 
-      // 2. Process each file
-      const successfullyProcessed: UploadedFile[] = [];
-      
-      // We process concurrently but update state individually
-      await Promise.all(newProcessingItems.map(async (item) => {
-          try {
-              const result = await readFileContent(item.file);
-              successfullyProcessed.push(result);
-              
-              // Remove from processing list upon success
-              setProcessingFiles(prev => prev.filter(p => p.id !== item.id));
-          } catch (error: any) {
-              // Update status to error
-              setProcessingFiles(prev => prev.map(p => 
-                  p.id === item.id 
-                  ? { ...p, status: 'error', error: error.message || "Failed to parse file" } 
-                  : p
-              ));
-          }
-      }));
+    // 2. Process each file
+    const successfullyProcessed: UploadedFile[] = [];
 
-      // 3. Update parent with successful files
-      if (successfullyProcessed.length > 0) {
-          onFilesChanged([...files, ...successfullyProcessed]);
+    // We process concurrently but update state individually
+    await Promise.all(newProcessingItems.map(async (item) => {
+      try {
+        const result = await readFileContent(item.file);
+        successfullyProcessed.push(result);
+
+        // Remove from processing list upon success
+        setProcessingFiles(prev => prev.filter(p => p.id !== item.id));
+      } catch (error: any) {
+        // Update status to error
+        setProcessingFiles(prev => prev.map(p =>
+          p.id === item.id
+            ? { ...p, status: 'error', error: error.message || "Failed to parse file" }
+            : p
+        ));
       }
+    }));
+
+    // 3. Update parent with successful files
+    if (successfullyProcessed.length > 0) {
+      onFilesChanged([...files, ...successfullyProcessed]);
+    }
   };
 
   const handleDrop = useCallback(
@@ -94,7 +94,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const removeProcessingFile = (tempId: string) => {
-      setProcessingFiles(prev => prev.filter(p => p.id !== tempId));
+    setProcessingFiles(prev => prev.filter(p => p.id !== tempId));
   };
 
   const getIcon = (type: string) => {
@@ -125,97 +125,97 @@ const FileUpload: React.FC<FileUploadProps> = ({
           className="hidden"
           onChange={handleFileInput}
         />
-        
+
         <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="p-3 bg-white border border-slate-200 rounded-full shadow-sm">
-                <Upload className="w-5 h-5 text-blue-600" />
-            </div>
-            <p className="text-sm font-medium text-slate-900">
-                Click to upload or drag and drop
-            </p>
-            <p className="text-xs text-slate-500">
-                {description}
-            </p>
+          <div className="p-3 bg-white border border-slate-200 rounded-full shadow-sm">
+            <Upload className="w-5 h-5 text-blue-600" />
+          </div>
+          <p className="text-sm font-medium text-slate-900">
+            Click to upload or drag and drop
+          </p>
+          <p className="text-xs text-slate-500">
+            {description}
+          </p>
         </div>
       </div>
 
       <div className="space-y-2">
-          {/* List Processing/Error Files */}
-          {processingFiles.map((item) => (
-              <div
-                key={item.id}
-                className={`flex items-center justify-between p-3 border rounded-md shadow-sm transition-all ${item.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-white border-blue-200'}`}
-              >
-                  <div className="flex items-center space-x-3 overflow-hidden w-full">
-                      <div className="flex-shrink-0">
-                          {item.status === 'processing' ? (
-                              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                          ) : (
-                              <AlertCircle className="w-5 h-5 text-red-500" />
-                          )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium truncate ${item.status === 'error' ? 'text-red-700' : 'text-slate-700'}`}>
-                              {item.file.name}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                              {item.status === 'processing' ? 'Extracting text...' : item.error}
-                          </p>
-                          {/* Progress Bar for processing */}
-                          {item.status === 'processing' && (
-                              <div className="w-full bg-slate-100 rounded-full h-1 mt-1.5 overflow-hidden">
-                                  <div className="bg-blue-600 h-1 rounded-full animate-progress-indeterminate"></div>
-                              </div>
-                          )}
-                      </div>
+        {/* List Processing/Error Files */}
+        {processingFiles.map((item) => (
+          <div
+            key={item.id}
+            className={`flex items-center justify-between p-3 border rounded-md shadow-sm transition-all ${item.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-white border-blue-200'}`}
+          >
+            <div className="flex items-center space-x-3 overflow-hidden w-full">
+              <div className="flex-shrink-0">
+                {item.status === 'processing' ? (
+                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium truncate ${item.status === 'error' ? 'text-red-700' : 'text-slate-700'}`}>
+                  {item.file.name}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {item.status === 'processing' ? 'Extracting text...' : item.error}
+                </p>
+                {/* Progress Bar for processing */}
+                {item.status === 'processing' && (
+                  <div className="w-full bg-slate-100 rounded-full h-1 mt-1.5 overflow-hidden">
+                    <div className="bg-blue-600 h-1 rounded-full animate-progress-indeterminate"></div>
                   </div>
-                  {item.status === 'error' && (
-                       <button
-                       type="button"
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         removeProcessingFile(item.id);
-                       }}
-                       className="ml-2 p-2 hover:bg-red-200 rounded-full transition-colors text-red-400 hover:text-red-700 flex-shrink-0"
-                     >
-                       <X className="w-4 h-4" />
-                     </button>
-                  )}
+                )}
               </div>
-          ))}
-
-          {/* List Successfully Uploaded Files */}
-          {files.map((file) => (
-            <div
-              key={file.id}
-              className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-md shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center space-x-3 overflow-hidden">
-                <div className="flex-shrink-0">
-                  {getIcon(file.type)}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {(file.size / 1024).toFixed(0)} KB {file.type === 'image' && '(OCR Extracted)'}
-                  </p>
-                </div>
-              </div>
+            </div>
+            {item.status === 'error' && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeFile(file.id);
+                  removeProcessingFile(item.id);
                 }}
-                className="ml-2 p-2 hover:bg-red-100 rounded-full transition-colors text-slate-400 hover:text-red-600 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-red-500"
-                aria-label="Remove file"
+                className="ml-2 p-2 hover:bg-red-200 rounded-full transition-colors text-red-400 hover:text-red-700 flex-shrink-0"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
+            )}
+          </div>
+        ))}
+
+        {/* List Successfully Uploaded Files */}
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-md shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center space-x-3 overflow-hidden">
+              <div className="flex-shrink-0">
+                {getIcon(file.type)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-700 truncate">
+                  {file.name}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {(file.size / 1024).toFixed(0)} KB {file.type === 'image' && '(OCR Extracted)'}
+                </p>
+              </div>
             </div>
-          ))}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeFile(file.id);
+              }}
+              className="ml-2 p-2 hover:bg-red-100 rounded-full transition-colors text-slate-400 hover:text-red-600 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-red-500"
+              aria-label="Remove file"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
