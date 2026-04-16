@@ -39,7 +39,7 @@ You must output a valid JSON object strictly matching the provided Response Sche
 Do not include any markdown formatting or text outside the JSON object.
 
 **INPUTS:**
-The user will provide Learning Objectives and structured Content Sections (with weights).
+The user will provide Learning Objectives and structured Content Sections (with weights). Source files are wrapped in markers like \`--- FILE (Section Title): filename.pdf ---\` ... \`--- END FILE ---\`. For every question, emit \`metadata.sourceDocument\` equal to the **exact filename** (verbatim, including extension) of the single file that most directly inspired that question. If multiple files contributed roughly equally, pick the one that contributed the most specific detail. If the question is based only on global Learning Objectives with no content-file dependency, use the LO filename instead.
 `;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -106,7 +106,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                       cognitiveLevel: { type: Type.STRING },
                       subtype: { type: Type.STRING },
                       week: { type: Type.INTEGER },
+                      sourceDocument: { type: Type.STRING },
                     },
+                    required: ["losTested", "cluster", "cognitiveLevel", "subtype", "week", "sourceDocument"],
                   },
                 },
                 required: ["id", "vignette", "leadIn", "options", "correctAnswer", "explanation", "metadata"],

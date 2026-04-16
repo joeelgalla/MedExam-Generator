@@ -429,7 +429,8 @@ function App() {
         score: finalScore,
         totalQuestions: questions.length,
         answers: { ...userAnswers },
-        questions: [ ...questions ]
+        questions: [ ...questions ],
+        flaggedQuestions: [ ...(activeProject.activeExam.flaggedQuestions || []) ],
     };
 
     // Telemetry: Log completion

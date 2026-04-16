@@ -47,6 +47,7 @@ export interface QuestionMetadata {
   cognitiveLevel: CognitiveLevel;
   subtype: QuestionSubtype;
   week: number;
+  sourceDocument?: string; // Filename of the lecture material doc that most directly inspired this question (optional for backward compat with pre-2026-04-16 exams)
 }
 
 export interface ExamQuestion {
@@ -71,6 +72,7 @@ export interface ExamAttempt {
   totalQuestions: number;
   answers: Record<number, string>; // questionId -> selectedOption
   questions: ExamQuestion[]; // Store copy of questions to analyze metadata later even if generated randomly
+  flaggedQuestions?: number[]; // Question IDs the user flagged (optional for backward compat)
 }
 
 export interface ActiveExamState {
