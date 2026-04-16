@@ -2,6 +2,21 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-16 — Migration to Vercel Serverless & Supabase Architecture
+
+Migrated from a client-side only prototype (`IndexedDB` + exposed API key) to a production-ready application using Vercel Serverless and Supabase PostgreSQL.
+
+### 1. API Security & Serverless Backend
+- Created Vercel serverless functions (`api/generate.ts`, `api/analyze.ts`, `api/ocr.ts`).
+- The `@google/genai` SDK was moved entirely to the backend endpoints to securely hide the `GEMINI_API_KEY` from the browser bundle.
+- Rewrote `services/geminiService.ts` to execute standard POST fetches to the `/api/*` routes instead of directly calling the AI SDK.
+
+### 2. Database Persistence & Auth (Supabase)
+- Scrapped mock local `IndexedDB` caching and user accounts.
+- Integrated `@supabase/supabase-js`.
+- Configured real Email/Password authentication using Supabase Auth in `App.tsx`.
+- Rewrote `services/storageService.ts` to sync the `Project` interface directly to a Supabase Postgres table with RLS (Row Level Security) enforcing one-account-per-user access.
+
 ## 2026-04-15 — Exam instruction overhaul (CNC ME alignment)
 
 Cross-referenced CNC ME prep video and 4 WFQ answer keys (Pain, Surgery, MPA, Cancer) against the existing prompt instructions. Changes are additive — nothing removed, kept generalizable across any Temerty block.

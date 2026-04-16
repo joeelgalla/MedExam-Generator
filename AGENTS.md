@@ -7,15 +7,18 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 
 ## Stack
 - Vite 6, React 19, TypeScript 5.8
-- `@google/genai` SDK, no backend — API key is read from `process.env.API_KEY` (Vite env) client-side
+- **Backend:** Vercel Serverless Functions (`/api/*`). The `@google/genai` SDK is executed here to keep the API key completely hidden from the browser.
+- **Database & Auth:** Supabase (PostgreSQL with RLS + Email/Password Auth).
 - Tailwind via CDN in `index.html` (no PostCSS pipeline)
 - `react-to-print` for exam export
 - State is plain React (no Redux/Zustand)
 
 ## Structure
-- `App.tsx` — top-level shell, routing between setup / generation / review views
+- `App.tsx` — top-level shell, routing between setup / generation / review views, and Supabase auth flow.
+- `api/` — Vercel serverless functions (`generate.ts`, `analyze.ts`, `ocr.ts`). All direct AI SDK interactions live here.
 - `components/` — UI components
-- `services/geminiService.ts` — **all Gemini API calls live here.** Any model/prompt change goes here.
+- `services/geminiService.ts` — Maps frontend actions to Fetch calls hitting the `/api/*` Vercel endpoints.
+- `services/storageService.ts` — Handles all Supabase CRUD operations for projects.
 - `constants.ts` — `SYSTEM_INSTRUCTION_BASE` (exam blueprint + rules) and telemetry endpoint
 - `types.ts` — `UploadedFile`, `ExamQuestion`, `BlueprintSection`, `DifficultyLevel`, `QuestionSubtype`
 
@@ -39,8 +42,8 @@ See [CHANGES.md](./CHANGES.md) for the running log. Read it before modifying `se
 - **Schema changes:** if you add fields to `ExamQuestion`, update both `types.ts` and the `responseSchema` in `generateExam`. The schema is enforced server-side — drift breaks parsing.
 - **Subtype enum:** `QuestionSubtype` in `types.ts` is intentionally broad to cover the range of Temerty question styles (diagnosis, best next step, side effects, drug interactions, ethics, prevention frameworks, SDOH, etc.). `QuestionCard.tsx` renders the raw enum value via `.replace(/_/g, ' ')`, so new values display automatically — no UI wiring needed when adding a subtype. The Gemini schema field is unconstrained (`Type.STRING`) so the model picks from whatever the system instruction describes.
 - **Thinking budget:** keep it gated by difficulty in `generateExam`. Don't blanket-enable thinking for Standard exams.
-- **Error handling in `geminiService.ts`** already maps 403/429/503 to user-friendly messages — extend that pattern, don't add silent try/catches.
-- **No backend:** this is a pure client app. Do not introduce a Node server without asking. API keys are injected at build time via Vite env.
+- **Error handling in Vercel endpoints** already maps 403/429/503 to user-friendly messages. `geminiService.ts` forwards these to the UI.
+- **API Security:** Do NOT leak `process.env.GEMINI_API_KEY` to the Vue/React bundle. It must only be accessed inside `api/*.ts`.
 - **Telemetry:** `TELEMETRY_ENDPOINT` in `constants.ts` is a live Google Apps Script endpoint. Don't rotate without coordinating.
 
 ## Running
