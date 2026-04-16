@@ -865,7 +865,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                             <label className="block text-sm font-medium text-slate-700 mb-2">
                                 Difficulty Level
                             </label>
-                            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
                                 <button
                                     onClick={() => handleDifficultyChange('standard')}
                                     className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all ${currentDifficulty === 'standard' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
@@ -874,15 +874,9 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                 </button>
                                 <button
                                     onClick={() => handleDifficultyChange('hard')}
-                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all ${currentDifficulty === 'hard' ? 'bg-white text-yellow-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all ${currentDifficulty === 'hard' || currentDifficulty === 'expert' ? 'bg-white text-yellow-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                                 >
                                     <SignalMedium className="w-4 h-4" /> Hard
-                                </button>
-                                <button
-                                    onClick={() => handleDifficultyChange('expert')}
-                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all ${currentDifficulty === 'expert' ? 'bg-white text-red-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-                                >
-                                    <SignalHigh className="w-4 h-4" /> Expert
                                 </button>
                             </div>
                         </div>
