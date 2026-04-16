@@ -2,6 +2,28 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-16 — Gemini 3 Pro thinking config: migrate to `thinkingLevel` (`api/generate.ts`)
+
+Standard-difficulty exam generation was failing immediately with 400 from the Gemini API. Root cause: `gemini-3-pro-preview` rejects `thinkingBudget: 0` as an invalid configuration (Gemini 3 Pro is thinking-first — thinking cannot be disabled).
+
+### What changed
+- Replaced numeric `thinkingBudget` with the semantic `thinkingLevel` enum (`HIGH`/`MEDIUM`/`LOW`) on `gemini-3-pro-preview`.
+- Difficulty mapping:
+  - Expert → `ThinkingLevel.HIGH`
+  - Hard → `ThinkingLevel.MEDIUM`
+  - Standard → `ThinkingLevel.LOW`
+- Imported `ThinkingLevel` from `@google/genai` (available in SDK ≥1.30).
+
+### Why this over alternatives tried this session
+- **`thinkingBudget: 0`** (original 2026-04-15 code) — rejected by Gemini 3 Pro with 400 INVALID_ARGUMENT. Broken.
+- **Omit `thinkingConfig` entirely on Standard** (commit `6f8e52e`) — fixes the 400 but makes Gemini 3 Pro use its default (maximum) thinking budget, erasing Standard's 3× speed/cost win.
+- **`thinkingBudget: 1024` on Standard** (commit `519c031`) — works and preserves speed, but Google's guidance for Gemini 3 is to use `thinkingLevel` (the old numeric budget is deprecated for the 3 series). `thinkingLevel` is forward-compatible and clearer intent.
+
+### Reminder for future edits
+- Do NOT set `thinkingBudget: 0` on Gemini 3 Pro.
+- Do NOT omit `thinkingConfig` on Gemini 3 Pro — defaults to max.
+- If switching models back to 2.5-series, `thinkingBudget` semantics are different (`0` disables, `-1` is dynamic). Don't blindly reuse this config shape across model generations.
+
 ## 2026-04-16 — Post-migration hotfixes (autosave 400s, generate 504s, Expert UI)
 
 Three bugs surfaced during live testing of the new Vercel + Supabase stack. All fixed in-session.
@@ -78,8 +100,9 @@ All changes in `services/geminiService.ts`.
 
 ### 2. Gated `thinkingBudget` by difficulty in `generateExam`
 - Was: `thinkingBudget: 4096` on every call.
-- Now: `4096` for Expert, `2048` for Hard, `1024` (minimum allowable) for Standard.
-- Rationale: Standard-difficulty questions are straightforward recall/application and don't benefit from deep chain-of-thought. Gemini 3 Pro rejects `0` and if omitted, defaults to maximum, so `1024` restricts it to the lowest possible threshold to make Standard exams ~3× faster and meaningfully cheaper with no quality regression. Hard/Expert keep full reasoning.
+- Now: `4096` for Expert, `2048` for Hard, `0` for Standard.
+- Rationale: Standard-difficulty questions are straightforward recall/application and don't benefit from deep chain-of-thought. This makes Standard exams ~3× faster and meaningfully cheaper with no quality regression. Hard/Expert keep full reasoning.
+- **Superseded 2026-04-16** (see entry below): Gemini 3 Pro rejects `thinkingBudget: 0`. Migrated to `thinkingLevel` enum.
 
 ### 3. Reordered Deep Dive prompt for implicit caching
 - `getQuestionSourceAnalysis` now puts `SOURCE FILES` FIRST in the prompt, with the question-specific part at the end.

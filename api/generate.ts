@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 
 const SYSTEM_INSTRUCTION = `
 You are an expert exam question generator for medical students.
@@ -61,14 +61,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const thinkingBudget = difficulty === 'expert' ? 4096 : difficulty === 'hard' ? 2048 : 1024;
+    const levelString = difficulty === 'expert' ? 'HIGH' : difficulty === 'hard' ? 'MEDIUM' : 'LOW';
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
-        thinkingConfig: { thinkingBudget },
+        thinkingConfig: { thinkingLevel: levelString },
         maxOutputTokens: 32768,
         responseMimeType: "application/json",
         responseSchema: {
