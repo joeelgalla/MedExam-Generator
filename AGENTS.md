@@ -8,6 +8,8 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 ## Stack
 - Vite 6, React 19, TypeScript 5.8
 - **Backend:** Vercel Serverless Functions (`/api/*`). The `@google/genai` SDK is executed here to keep the API key completely hidden from the browser.
+  - **Fluid Compute is required** (`"fluid": true` in `vercel.json`). Without it, Hobby caps at 60s; Gemini 3 Pro with thinking exceeds that. With it, Hobby gets 300s. Don't remove.
+  - `maxDuration: 300` on both `api/generate.ts` and `api/analyze.ts`.
 - **Database & Auth:** Supabase (PostgreSQL with RLS + Email/Password Auth).
 - Tailwind via CDN in `index.html` (no PostCSS pipeline)
 - `react-to-print` for exam export
@@ -45,6 +47,9 @@ See [CHANGES.md](./CHANGES.md) for the running log. Read it before modifying `se
 - **Error handling in Vercel endpoints** already maps 403/429/503 to user-friendly messages. `geminiService.ts` forwards these to the UI.
 - **API Security:** Do NOT leak `process.env.GEMINI_API_KEY` to the Vue/React bundle. It must only be accessed inside `api/*.ts`.
 - **Telemetry:** `TELEMETRY_ENDPOINT` in `constants.ts` is a live Google Apps Script endpoint. Don't rotate without coordinating.
+- **XLSX parsing:** use `XLSX.utils.sheet_to_csv` (UTF-8), **not** `sheet_to_txt` (UTF-16 LE with NUL bytes — Postgres JSONB rejects them with error `22P05`).
+- **Saving to Supabase:** all project data goes through `stripNulls()` in `storageService.saveProject` as a safety net. Don't bypass it. If a new parser or import path is added that produces raw bytes, the helper keeps autosave from breaking.
+- **Expert difficulty is hidden from the generator UI** (2026-04-16) until frontend batching exists. `'expert'` is still a valid `DifficultyLevel` — completed exams still render the Expert badge. Don't remove the enum value. To re-enable, restore the button in `App.tsx` + flip the grid to `grid-cols-3`.
 
 ## Running
 ```

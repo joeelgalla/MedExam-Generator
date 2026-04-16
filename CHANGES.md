@@ -2,6 +2,32 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-16 — Post-migration hotfixes (autosave 400s, generate 504s, Expert UI)
+
+Three bugs surfaced during live testing of the new Vercel + Supabase stack. All fixed in-session.
+
+### 1. XLSX autosave → Postgres 22P05 (`services/fileService.ts`, `services/storageService.ts`)
+- Autosaves were failing with `400 Bad Request` and Postgres error `22P05: \u0000 cannot be converted to text`.
+- Root cause: `XLSX.utils.sheet_to_txt()` returns **UTF-16 LE with a BOM**, which means every character is interleaved with NUL bytes. Postgres JSONB rejects `\u0000`.
+- Fix: switched to `XLSX.utils.sheet_to_csv()` (UTF-8) in `readXlsx`.
+- Defensive safety net: added `stripNulls()` helper in `storageService.saveProject` that scrubs `\u0000` from any project before upsert. Prevents future parser regressions from bricking autosave.
+
+### 2. `/api/generate` → 504 FUNCTION_INVOCATION_TIMEOUT (`vercel.json`)
+- Hard + 20 questions measured at **75.5s**, exceeding the default Vercel Hobby 60s `maxDuration`.
+- Fix: enabled **Fluid Compute** via `"fluid": true` in `vercel.json` and bumped `maxDuration: 60 → 300` for both `api/generate.ts` and `api/analyze.ts`.
+- Verified against Vercel's official docs: Hobby + Fluid Compute = 300s default / 300s max (shipped April 23, 2025). Not an AI hallucination — Vercel CTO Malte Ubl confirmed on X.
+- Headroom: Hard+40 projects to ~150s, Expert+20 to ~150s. **Expert+40 (~300s+) is still over the cap** — hence the UI change below.
+
+### 3. Expert difficulty hidden from generator UI (`App.tsx`)
+- Expert+40 would break the 300s ceiling. Rather than ship a partial solution, hid the Expert button until a batching strategy lands.
+- Grid is now 2 columns (Standard / Hard). If a project was previously saved with `difficulty === 'expert'`, the Hard button highlights so the selector isn't blank.
+- The `'expert'` value is still valid in `DifficultyLevel` and still renders the red "Expert" badge on completed exams in history.
+- Dropped unused `SignalHigh` import.
+
+### Ideas not implemented (yet)
+- **Frontend batching** for very large exams (>25 questions or Expert+anything): generate in chunks of 5-10, de-dup by feeding prior batch IDs back into each prompt. Required to re-enable Expert+40.
+- **Streaming (`generateContentStream`)**: not useful on its own — the client needs complete JSON to parse, and Fluid Compute + 300s already solves the reliability issue for all non-Expert+40 combos.
+
 ## 2026-04-16 — Migration to Vercel Serverless & Supabase Architecture
 
 Migrated from a client-side only prototype (`IndexedDB` + exposed API key) to a production-ready application using Vercel Serverless and Supabase PostgreSQL.
