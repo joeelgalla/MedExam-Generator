@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "fluid": true,
   "functions": {
     "api/generate.ts": {
       "maxDuration": 300
