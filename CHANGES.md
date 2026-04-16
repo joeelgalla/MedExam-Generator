@@ -2,6 +2,43 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-16 — Analytics rewrite: flag persistence, source-doc attribution, hierarchical study plan
+
+Analytics previously tracked only right/wrong. Flags were local to the active exam and lost on submission, and there was no way to tell which uploaded file a missed question came from. Reworked the full data path end-to-end.
+
+### Schema additions (both optional for backward compat)
+- `QuestionMetadata.sourceDocument?: string` (`types.ts`) — verbatim filename of the lecture file that most directly inspired the question. Required in the Gemini `responseSchema` (server-enforced); optional in the TS type so exams generated before this change still load.
+- `ExamAttempt.flaggedQuestions?: number[]` (`types.ts`) — question IDs the user flagged during the attempt. Copied from `activeExam.flaggedQuestions` into the `ExamAttempt` at submit time in `App.tsx`.
+
+### Gemini prompt / schema (`api/generate.ts`)
+- System instruction now describes the `--- FILE (Section Title): filename.pdf ---` prompt markers and tells the model to emit `metadata.sourceDocument` equal to the exact filename (including extension) that contributed the most specific detail. Falls back to the LO filename for pure-LO questions.
+- `responseSchema.items.metadata` adds `sourceDocument: STRING` and marks all metadata fields `required`.
+
+### AnalyticsDashboard rewrite (`components/AnalyticsDashboard.tsx`)
+- Flattens `history` into a `QuestionEvent[]` (one per question attempt with `isCorrect` + `isFlagged`), then aggregates across week, cognitive level, cluster, LO, and source document.
+- New metric shape: `{ correct, wrong, flagged, needsReview, total, accuracyPct, needsReviewPct }` where `needsReview = wrong OR flagged` (no double-count).
+- Progress bars are now stacked (green correct / red-300 wrong) with an amber flag-count badge in the row label when any of the row's questions were flagged.
+- Header stats: added a 4th "Flagged" card.
+- New "AI Study Coach — Where to focus next" drilldown (replaces the flat Weaknesses list):
+  1. Weakest **week** (by `needsReviewPct`, min-sample = 3).
+  2. Within that week → weakest **learning objective**.
+  3. Within that week+LO → most-implicated **source document**.
+  4. Within that week+LO+source → top 2–3 **topic clusters** (as tags).
+- New "Source Documents" tab alongside Topic & Level / Learning Objectives. Empty state explains the backward-compat situation for old exams.
+- "Learning Objectives" table adds a "Flagged" column.
+
+### Caveats
+- `sourceDocument` attribution accuracy depends on Gemini — spot-check a few questions from a fresh exam. If attribution looks off, tighten the prompt (don't rip out the feature).
+- Min-sample guards (`MIN_SAMPLE = 3` for weeks, `2` for LOs) prevent single-miss questions from dominating the drilldown.
+
+## 2026-04-16 — `ThinkingLevel` enum: fix TS nominal-typing regression (`api/generate.ts`)
+
+Antigravity-generated commit `478b046` migrated `thinkingBudget` → `thinkingLevel` but used raw string literals (`'HIGH' | 'MEDIUM' | 'LOW'`), which don't satisfy the nominal `ThinkingLevel` enum type from `@google/genai`. tsc flagged it with `2322`.
+
+Fix: reference `ThinkingLevel.HIGH/MEDIUM/LOW` members directly. Runtime value is unchanged (enum members ARE those strings), but the type system only accepts them via the enum name.
+
+General lesson for `@google/genai` usage: all SDK enums (`Type`, `ThinkingLevel`, `HarmCategory`, etc.) are nominal — never use equivalent string literals even if you can see the runtime value match.
+
 ## 2026-04-16 — Gemini 3 Pro thinking config: migrate to `thinkingLevel` (`api/generate.ts`)
 
 Standard-difficulty exam generation was failing immediately with 400 from the Gemini API. Root cause: `gemini-3-pro-preview` rejects `thinkingBudget: 0` as an invalid configuration (Gemini 3 Pro is thinking-first — thinking cannot be disabled).
