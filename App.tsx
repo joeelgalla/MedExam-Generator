@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UploadedFile, ExamQuestion, ExamAttempt, Project, DifficultyLevel, BlueprintSection } from './types';
+import { UploadedFile, ExamQuestion, ExamAttempt, Project, DifficultyLevel, BlueprintSection, PracticeMode } from './types';
+import { computeUnlocks, highestUnlockedMode, isModeUnlocked } from './services/practiceMode';
 import FileUpload from './components/FileUpload';
 import QuestionCard from './components/QuestionCard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
@@ -10,7 +11,7 @@ import { generateExam, getQuestionSourceAnalysis } from './services/geminiServic
 import { saveProject, getAllProjects, deleteProject } from './services/storageService';
 import { supabase } from './lib/supabase';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
-import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings } from 'lucide-react'; // ADD SETTINGS ICON
+import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings, Target, Crosshair, Shuffle } from 'lucide-react'; // ADD SETTINGS ICON
 import { useReactToPrint } from 'react-to-print';
 
 // --- CONFIGURATION ---
@@ -289,6 +290,15 @@ function App() {
     });
   };
 
+  const handlePracticeModeChange = (mode: PracticeMode) => {
+    if (!activeProject) return;
+    if (!isModeUnlocked(mode, activeProject.examHistory)) return;
+    updateActiveProject({
+        ...activeProject,
+        activeExam: { ...activeProject.activeExam, practiceMode: mode }
+    });
+  };
+
   const handleConfigToggle = () => {
       if (!activeProject) return;
       updateActiveProject({
@@ -312,16 +322,25 @@ function App() {
     setLoading(true);
     setError(null);
 
+    // Resolve practice mode against current unlocks — a stale 'targeted' setting
+    // from a project that lost history shouldn't silently bias generation.
+    const requestedMode: PracticeMode = activeProject.activeExam.practiceMode || 'balanced';
+    const effectiveMode: PracticeMode = isModeUnlocked(requestedMode, activeProject.examHistory)
+      ? requestedMode
+      : highestUnlockedMode(activeProject.examHistory);
+
     // Telemetry: Log generation attempt
     logEvent('exam_generated', {
         questionCount: activeProject.activeExam.questionCount,
         difficulty: activeProject.activeExam.difficulty,
+        practiceMode: effectiveMode,
         blueprintSections: activeProject.blueprint.length,
         totalFiles: activeProject.learningObjectivesFiles.length + activeProject.blueprint.reduce((acc, s) => acc + s.files.length, 0)
     });
 
     const resetExamState = {
         ...activeProject.activeExam,
+        practiceMode: effectiveMode,
         questions: [],
         userAnswers: {},
         flaggedQuestions: [],
@@ -332,11 +351,13 @@ function App() {
 
     try {
       const generatedQuestions = await generateExam(
-          activeProject.learningObjectivesFiles, 
-          activeProject.blueprint, 
+          activeProject.learningObjectivesFiles,
+          activeProject.blueprint,
           activeProject.activeExam.questionCount,
           activeProject.activeExam.difficulty || 'standard',
-          activeProject.referenceTotalQuestions || 40 // Pass the reference total
+          activeProject.referenceTotalQuestions || 40, // Pass the reference total
+          effectiveMode,
+          activeProject.examHistory,
       );
       
       const newExamState = {
@@ -710,6 +731,8 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
   // --- VIEW: PROJECT WORKSPACE ---
   const { activeExam, learningObjectivesFiles, blueprint, examHistory } = activeProject;
   const currentDifficulty = activeExam.difficulty || 'standard';
+  const currentPracticeMode: PracticeMode = activeExam.practiceMode || 'balanced';
+  const practiceUnlocks = computeUnlocks(examHistory);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col print:bg-white">
@@ -888,10 +911,10 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                 Generate Questions (Mock Exam Size)
                             </label>
                             <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200 h-[50px]">
-                                <input 
-                                    type="range" 
-                                    min="5" 
-                                    max="50" 
+                                <input
+                                    type="range"
+                                    min="5"
+                                    max="50"
                                     step="1"
                                     value={activeExam.questionCount}
                                     onChange={(e) => handleQuestionCountChange(parseInt(e.target.value))}
@@ -901,6 +924,91 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                     {activeExam.questionCount}
                                 </span>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Practice Mode */}
+                    <div>
+                        <div className="flex items-baseline justify-between mb-2">
+                            <label className="block text-sm font-medium text-slate-700">
+                                Practice Mode
+                            </label>
+                            <span className="text-xs text-slate-400">
+                                Recommendations sharpen as you complete more questions.
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                            {/* Balanced — always available */}
+                            <button
+                                onClick={() => handlePracticeModeChange('balanced')}
+                                className={`flex flex-col items-start gap-1 py-2.5 px-3 rounded-md text-sm font-medium transition-all text-left ${currentPracticeMode === 'balanced' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                                title="Generate questions purely from your blueprint, ignoring past performance."
+                            >
+                                <span className="flex items-center gap-1.5"><Shuffle className="w-4 h-4" /> Balanced</span>
+                                <span className="text-[11px] text-slate-400 font-normal leading-snug">Even coverage of your blueprint.</span>
+                            </button>
+
+                            {/* Focused — unlocks at PRACTICE_MODE_UNLOCKS.focused */}
+                            {(() => {
+                                const u = practiceUnlocks.focused;
+                                const active = currentPracticeMode === 'focused';
+                                const baseCls = 'flex flex-col items-start gap-1 py-2.5 px-3 rounded-md text-sm font-medium transition-all text-left';
+                                const stateCls = !u.unlocked
+                                    ? 'text-slate-300 bg-slate-100/60 cursor-not-allowed'
+                                    : active
+                                        ? 'bg-white text-blue-600 shadow-sm border border-slate-100'
+                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50';
+                                return (
+                                    <button
+                                        onClick={() => handlePracticeModeChange('focused')}
+                                        disabled={!u.unlocked}
+                                        className={`${baseCls} ${stateCls}`}
+                                        title={u.unlocked
+                                            ? 'Skews the blueprint toward weak spots. Strong topics still appear, just less often.'
+                                            : `Unlocks after ${u.required} answered questions (${u.remaining} to go).`}
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            {u.unlocked ? <Target className="w-4 h-4" /> : <Lock className="w-4 h-4" />} Focused
+                                        </span>
+                                        <span className="text-[11px] font-normal leading-snug text-slate-400">
+                                            {u.unlocked
+                                                ? 'Weights questions toward weak spots.'
+                                                : `Unlocks at ${u.required} questions (${u.remaining} to go).`}
+                                        </span>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Targeted — unlocks at PRACTICE_MODE_UNLOCKS.targeted */}
+                            {(() => {
+                                const u = practiceUnlocks.targeted;
+                                const active = currentPracticeMode === 'targeted';
+                                const baseCls = 'flex flex-col items-start gap-1 py-2.5 px-3 rounded-md text-sm font-medium transition-all text-left';
+                                const stateCls = !u.unlocked
+                                    ? 'text-slate-300 bg-slate-100/60 cursor-not-allowed'
+                                    : active
+                                        ? 'bg-white text-blue-600 shadow-sm border border-slate-100'
+                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50';
+                                return (
+                                    <button
+                                        onClick={() => handlePracticeModeChange('targeted')}
+                                        disabled={!u.unlocked}
+                                        className={`${baseCls} ${stateCls}`}
+                                        title={u.unlocked
+                                            ? 'Skips topics you have mastered. Maintenance questions cycle them back in periodically so you do not forget.'
+                                            : `Unlocks after ${u.required} answered questions (${u.remaining} to go).`}
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            {u.unlocked ? <Crosshair className="w-4 h-4" /> : <Lock className="w-4 h-4" />} Targeted
+                                        </span>
+                                        <span className="text-[11px] font-normal leading-snug text-slate-400">
+                                            {u.unlocked
+                                                ? 'Weak topics only — mastered ones cycle back as maintenance.'
+                                                : `Unlocks at ${u.required} questions (${u.remaining} to go).`}
+                                        </span>
+                                    </button>
+                                );
+                            })()}
                         </div>
                     </div>
 

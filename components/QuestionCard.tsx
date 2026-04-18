@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { ExamQuestion } from '../types';
-import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Search, Loader2, Flag, Highlighter } from 'lucide-react';
+import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Search, Loader2, Flag, Highlighter, RefreshCw } from 'lucide-react';
 
 interface QuestionCardProps {
   question: ExamQuestion;
@@ -109,6 +109,14 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         <span className="bg-slate-200 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold print:hidden">
           {question.metadata.subtype.replace(/_/g, ' ')}
         </span>
+        {question.metadata.isMaintenance && (
+          <span
+            className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold print:hidden"
+            title="You aced this topic earlier — we're checking it's still solid."
+          >
+            <RefreshCw className="w-3 h-3" /> Maintenance
+          </span>
+        )}
         
         {/* Flag Button */}
         {!isSubmitted && (

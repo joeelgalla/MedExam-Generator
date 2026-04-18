@@ -40,6 +40,14 @@ Do not include any markdown formatting or text outside the JSON object.
 
 **INPUTS:**
 The user will provide Learning Objectives and structured Content Sections (with weights). Source files are wrapped in markers like \`--- FILE (Section Title): filename.pdf ---\` ... \`--- END FILE ---\`. For every question, emit \`metadata.sourceDocument\` equal to the **exact filename** (verbatim, including extension) of the single file that most directly inspired that question. If multiple files contributed roughly equally, pick the one that contributed the most specific detail. If the question is based only on global Learning Objectives with no content-file dependency, use the LO filename instead.
+
+**PRACTICE MODE (optional):**
+The prompt may include a "PART 3: PRACTICE MODE DIRECTIVE" section that tells you to bias question selection toward weak LOs, away from strong LOs, or to include "MAINTENANCE" questions on previously-mastered LOs. When PART 3 is present:
+- Honor the WEAK / STRONG / MAINTENANCE LO lists exactly as instructed (emphasize, de-emphasize, or skip).
+- For any question generated from a MAINTENANCE LO, set \`metadata.isMaintenance = true\`. For all other questions, omit the field or set it to \`false\`.
+- The maintenance count is INCLUDED in the requested total — do not exceed the requested question count.
+- Maintenance questions must use a NEW clinical scenario; never reuse or paraphrase RECENTLY MISSED stems.
+When PART 3 is absent, follow the blueprint exactly as before and omit \`isMaintenance\`.
 `;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -107,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                       subtype: { type: Type.STRING },
                       week: { type: Type.INTEGER },
                       sourceDocument: { type: Type.STRING },
+                      isMaintenance: { type: Type.BOOLEAN },
                     },
                     required: ["losTested", "cluster", "cognitiveLevel", "subtype", "week", "sourceDocument"],
                   },

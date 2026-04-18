@@ -41,6 +41,8 @@ export enum CognitiveLevel {
 
 export type DifficultyLevel = 'standard' | 'hard' | 'expert';
 
+export type PracticeMode = 'balanced' | 'focused' | 'targeted';
+
 export interface QuestionMetadata {
   losTested: string[];
   cluster: string;
@@ -48,6 +50,7 @@ export interface QuestionMetadata {
   subtype: QuestionSubtype;
   week: number;
   sourceDocument?: string; // Filename of the lecture material doc that most directly inspired this question (optional for backward compat with pre-2026-04-16 exams)
+  isMaintenance?: boolean; // Regenerated question on a previously-mastered LO to prevent forgetting — shown with a "Maintenance" badge.
 }
 
 export interface ExamQuestion {
@@ -83,6 +86,7 @@ export interface ActiveExamState {
   configOpen: boolean;
   questionCount: number;
   difficulty: DifficultyLevel;
+  practiceMode?: PracticeMode; // Optional for backward compat — default 'balanced'.
 }
 
 export interface Project {

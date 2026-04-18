@@ -23,7 +23,8 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 - `services/storageService.ts` — Handles all Supabase CRUD operations for projects.
 - `constants.ts` — `SYSTEM_INSTRUCTION_BASE` (exam blueprint + rules) and telemetry endpoint
 - `types.ts` — `UploadedFile`, `ExamQuestion`, `BlueprintSection`, `DifficultyLevel`, `QuestionSubtype`
-- `components/AnalyticsDashboard.tsx` — reads `ExamAttempt[]`, flattens into per-question events (correct / wrong / flagged), aggregates across week / cognitive level / cluster / LO / source document. Renders the hierarchical "Where to focus next" drilldown.
+- `components/AnalyticsDashboard.tsx` — reads `ExamAttempt[]`, flattens into per-question events (correct / wrong / flagged), aggregates across week / cognitive level / cluster / LO / source document. Renders the hierarchical "Where to focus next" drilldown plus a Review Questions tab for browsing past wrong/flagged stems.
+- `services/practiceMode.ts` — pure-function module that owns all targeted-practice math (LO mastery, weak-LO detection, Anki-style maintenance interval, mode-unlock thresholds) and builds the prompt directive appended to `generateExam`'s prompt.
 
 ## Exam instructions are Temerty-tuned (but generalizable)
 `SYSTEM_INSTRUCTION_BASE` in `constants.ts` and the difficulty blocks in `geminiService.ts` have been tuned against Temerty Faculty of Medicine exam guidance (CNC ME prep video + multiple WFQ answer keys). Key guarantees:
@@ -54,6 +55,8 @@ See [CHANGES.md](./CHANGES.md) for the running log. Read it before modifying `se
 - **XLSX parsing:** use `XLSX.utils.sheet_to_csv` (UTF-8), **not** `sheet_to_txt` (UTF-16 LE with NUL bytes — Postgres JSONB rejects them with error `22P05`).
 - **Saving to Supabase:** all project data goes through `stripNulls()` in `storageService.saveProject` as a safety net. Don't bypass it. If a new parser or import path is added that produces raw bytes, the helper keeps autosave from breaking.
 - **Expert difficulty is hidden from the generator UI** (2026-04-16) until frontend batching exists. `'expert'` is still a valid `DifficultyLevel` — completed exams still render the Expert badge. Don't remove the enum value. To re-enable, restore the button in `App.tsx` + flip the grid to `grid-cols-3`.
+- **Practice modes (`balanced` / `focused` / `targeted`)** are the only place exam history feeds back into generation. All thresholds (unlocks, mastery window, maintenance interval) live as `const`s at the top of `services/practiceMode.ts` — change them there, not inline. `generateExam` falls back to `'balanced'` automatically when the requested mode is locked or `history` is empty, so the helper is safe to call before any exams have been completed. Adding a new mode requires changes in three places: the `PracticeMode` union (`types.ts`), the unlock map + directive builder (`practiceMode.ts`), and the pill selector (`App.tsx`).
+- **`isMaintenance` is an opt-in metadata flag** the model sets on a question generated against a "MAINTENANCE LO". Keep it optional in the TS type — exams generated before 2026-04-18 won't have it. The Review tab and `QuestionCard` both render a green "Maintenance" badge when present.
 
 ## Running
 ```

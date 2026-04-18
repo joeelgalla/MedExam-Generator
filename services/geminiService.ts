@@ -1,5 +1,6 @@
 
-import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection } from '../types';
+import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode } from '../types';
+import { buildPracticeDirective, buildPracticeModeContext } from './practiceMode';
 
 // --- OCR (Image Text Extraction) ---
 export const extractTextFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
@@ -60,7 +61,9 @@ export const generateExam = async (
   blueprint: BlueprintSection[],
   questionCount: number = 10,
   difficulty: DifficultyLevel = 'standard',
-  referenceTotalQuestions: number = 40
+  referenceTotalQuestions: number = 40,
+  practiceMode: PracticeMode = 'balanced',
+  history: ExamAttempt[] = [],
 ): Promise<ExamQuestion[]> => {
 
   // Prepare LO Context
@@ -115,6 +118,11 @@ export const generateExam = async (
     `;
   }
 
+  // Build practice-mode directive (Focused/Targeted weighting + maintenance LOs).
+  // No-op string in Balanced mode or when there's not enough signal yet.
+  const practiceCtx = buildPracticeModeContext(history);
+  const practiceDirective = buildPracticeDirective(practiceMode, practiceCtx);
+
   const prompt = `
     Based on the attached files, generate a Practice Exam.
 
@@ -122,9 +130,9 @@ export const generateExam = async (
     The user wants to generate exactly **${questionCount}** questions.
     The provided Blueprint sections are based on a reference total of **${referenceTotalQuestions}** questions.
     You must SCALE the number of questions for each section proportionally.
-    
+
     *Example:* If a section has "10-12" questions in a 40-question reference exam, and the user asks for 10 questions (1/4th the size), that section should have roughly 2-3 questions in this output.
-    
+
     **Constraint Checklist & Confidence Score:**
     1. Generate exactly ${questionCount} questions? Yes.
     2. Proportional Scaling? Yes.
@@ -138,6 +146,7 @@ export const generateExam = async (
 
     **PART 2: Exam Blueprint & Content**
     ${blueprintContext}
+    ${practiceDirective ? `\n${practiceDirective}\n` : ''}
   `;
 
   try {

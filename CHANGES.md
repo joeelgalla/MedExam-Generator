@@ -2,6 +2,57 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-18 — Targeted practice modes + Question Review tab + maintenance cycling
+
+Analytics already showed *what* the user was weak on, but the generator was unaware of it. Closed the loop end-to-end: the user can now generate exams that bias toward weak spots, with an Anki-style maintenance mechanism so previously-mastered LOs don't decay.
+
+### New module: `services/practiceMode.ts`
+Pure functions over `ExamAttempt[]` — no React, no side effects. Single source of truth for thresholds:
+- `MIN_LO_SAMPLE = 3` — an LO needs ≥3 attempts before it can be called weak or mastered.
+- `MASTERY_WINDOW = 3`, `MASTERY_THRESHOLD = 0.85` — mastery = ≥85% over last 3 attempts on that LO.
+- `WEAK_THRESHOLD = 0.6` — overall accuracy at or below 60% with sufficient sample = weak.
+- `MAINTENANCE_BASE_INTERVAL = 20`, `MAINTENANCE_INTERVAL_MAX = 200` — re-surface a mastered LO after 20 answered questions; doubles after each successful maintenance answer; capped at 200.
+- `PRACTICE_MODE_UNLOCKS = { focused: 20, targeted: 50 }` — modes are gated by total questions answered in the project.
+
+Exports: `computeUnlocks`, `isModeUnlocked`, `highestUnlockedMode`, `buildPracticeModeContext`, `buildPracticeDirective`.
+
+### Schema additions (both optional for backward compat)
+- `PracticeMode = 'balanced' | 'focused' | 'targeted'` in `types.ts`.
+- `ActiveExamState.practiceMode?: PracticeMode` — persisted on the project so the user's choice sticks per-project.
+- `QuestionMetadata.isMaintenance?: boolean` — set by Gemini when it generates a maintenance question; also added to the response schema in `api/generate.ts`.
+
+### Generator wiring
+- `generateExam` in `services/geminiService.ts` now takes `(practiceMode, history)` and appends a "PART 3: PRACTICE MODE DIRECTIVE" block to the prompt with the WEAK / STRONG / MAINTENANCE LO lists and up to 5 recently-missed stems for inspiration.
+- The system instruction in `api/generate.ts` is extended to describe Practice Mode behavior — when PART 3 is absent, behavior is unchanged from before.
+- `App.tsx` resolves the requested mode against current unlocks before calling `generateExam` (a stale `'targeted'` setting on a project that lost history falls back to the highest unlocked mode automatically).
+
+### UI
+- New Practice Mode pill selector under Difficulty (`App.tsx`). Three options:
+  - **Balanced** (default) — current behavior, blueprint-driven, no history bias.
+  - **Focused** (unlocks at 20 questions) — weak LOs get ~2× normal share, strong LOs ~0.5×, others unchanged.
+  - **Targeted** (unlocks at 50 questions) — drops mastered LOs entirely, except for periodic Maintenance questions.
+- Locked modes show a Lock icon + "Unlocks at N questions (M to go)" tooltip.
+- Sub-label: "Recommendations sharpen as you complete more questions" — sets the expectation that the system improves with use.
+
+### Maintenance question marking
+- `QuestionCard.tsx` shows a small green "Maintenance" pill (with `RefreshCw` icon) next to the subtype tag when `metadata.isMaintenance === true`. Tooltip: "You aced this topic earlier — we're checking it's still solid." Hidden in print view.
+
+### New "Review Questions" tab in AnalyticsDashboard
+Past wrong/flagged questions were only recoverable via the JSON export. Added a fourth tab with:
+- Filter pills: Needs review / Wrong only / Flagged only / All (each with a count badge).
+- Free-text search across stems, LOs, clusters, and source filenames.
+- Collapsible rows: show date / week / level / cluster / flag + maintenance badges in the collapsed view; full vignette + lead-in + all 4 options (color-coded with "Correct"/"Your answer" labels) + explanation + LOs + source doc when expanded.
+- The tab label gets a red badge with the needs-review count.
+
+### Why these defaults
+- **20/50/100 unlocks (chose 20/50)**: per-week signal stabilizes by ~10 attempts/week (~20 total across a typical 4-section blueprint). Per-LO signal needs more — picked 50 as the lower bound where targeted recommendations stop being noise. 100 was reserved as a future tier if LO-level targeting needs more guardrails; 50 is the current ceiling.
+- **Attempt-based maintenance, not time-based**: med students cram in bursts around exams, then go dormant between blocks. Time-based decay would mark everything "due" after a two-week gap and defeat the purpose. Attempt-based pacing aligns reintroduction with effort, not calendar.
+- **Maintenance count is included in the requested total** (not added on top): user asks for 20 questions, they get 20. Maintenance just biases which LOs those questions cover — never overrides the size slider.
+
+### Caveats
+- Mastery/maintenance scoring depends on Gemini honoring the `losTested` array. If LO labels drift between exams (different casing, punctuation), they'll be treated as different LOs. The dashboard already trims; consider tightening if cardinality looks inflated.
+- Recently-missed stems sent to the model are truncated to 600 chars each, max 5. Adjust caps in `practiceMode.ts` if prompt size becomes a problem.
+
 ## 2026-04-16 — Analytics rewrite: flag persistence, source-doc attribution, hierarchical study plan
 
 Analytics previously tracked only right/wrong. Flags were local to the active exam and lost on submission, and there was no way to tell which uploaded file a missed question came from. Reworked the full data path end-to-end.
