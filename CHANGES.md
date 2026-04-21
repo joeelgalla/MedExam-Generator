@@ -2,6 +2,36 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-20 (evening) — Tutor panel refactor: Deep Dive + chat in Review Questions tab
+
+Bug report from live testing: Deep Dive and AI Tutor chat worked in post-submit review right after completing an exam, but were missing from the **Review Questions** tab in the Analytics Dashboard. The Review tab renders its own custom row markup (not via `QuestionCard`), so it never received the new tutor UI.
+
+### Extraction: `components/QuestionTutorPanel.tsx`
+- Pulled the Deep Dive button + result + chat panel + "Ask about this" selection popup out of `QuestionCard` into a shared component.
+- Self-contained: owns `deepDiveContent`, `chatMessages`, `chatInput`, `isSending`, `selectionPopup` state plus `chatPanelRef` for selection exclusion.
+- Accepts a `contentRef: React.RefObject<HTMLElement | null>` from the parent — scope for "Ask about this" detection. The panel attaches a `mouseup` listener to that ref in `useEffect` and cleans up on unmount.
+- Selection popup switched from absolute-positioned (relative to container) to `position: fixed` with viewport coords from `range.getBoundingClientRect()`. Works across scroll containers without overflow-clipping.
+- `AssistantText` markdown-lite renderer is exported from this file — single source of truth.
+
+### `QuestionCard.tsx` refactor
+- Removed: inline Deep Dive/chat/selection state and handlers, `chatPanelRef`, `chatScrollRef`, `chatInputRef`, the selection popup JSX, `useEffect` for auto-scroll. All now live in the tutor panel.
+- Simplified the LOs row (no longer has the Deep Dive button inline) — button moved into the tutor panel itself.
+- Added `<QuestionTutorPanel>` inside the explanation box in post-submit view.
+- Net: 243 → 208 lines, behavior identical from the user's point of view.
+
+### `AnalyticsDashboard.tsx` — Review tab now gets tutor features
+- New `onDeepDive` and `onChatSend` props required (same signatures as `QuestionCard`).
+- New internal `ReviewRowExpanded` component — owns its own `contentRef`, renders the existing vignette/lead-in/options/explanation layout PLUS a `<QuestionTutorPanel>` at the bottom.
+- The old inline expansion JSX was swapped out for `<ReviewRowExpanded />`.
+
+### `App.tsx` wiring
+- `<AnalyticsDashboard>` now receives `onDeepDive={handleDeepDive}` and `onChatSend={handleChatSend}` — the same handlers already passed to `QuestionCard`. No new handlers needed.
+
+### Invariant preserved
+- Ephemeral chat still ephemeral — each `<QuestionTutorPanel>` instance owns its own chat thread in React state; no Supabase writes.
+- Multiple rows can be expanded simultaneously; each has an independent chat. Re-collapse + re-expand resets that row's chat (acceptable trade-off for ephemeral v1).
+- Past exams unaffected — same handlers, same backend endpoints, same `ExamQuestion` shape.
+
 ## 2026-04-20 — Per-question AI tutor chat + ask-about-selection
 
 Extends Deep Dive from a single-shot evidence lookup into a multi-turn tutor conversation, scoped per-question. Also fixes the Deep Dive vagueness issues identified earlier by enriching the prompt with signals the app was already collecting but not using.

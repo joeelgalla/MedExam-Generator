@@ -1,6 +1,7 @@
 
-import React, { useMemo, useState } from 'react';
-import { ExamAttempt, ExamQuestion } from '../types';
+import React, { useMemo, useRef, useState } from 'react';
+import { ExamAttempt, ExamQuestion, ChatMessage } from '../types';
+import QuestionTutorPanel from './QuestionTutorPanel';
 import {
   BarChart3,
   TrendingUp,
@@ -24,6 +25,11 @@ import {
 
 interface AnalyticsDashboardProps {
   history: ExamAttempt[];
+  // Deep Dive + AI Tutor chat handlers — required so the Review Questions tab
+  // can offer source verification and follow-up chat on past questions. Same
+  // handlers used by the post-submit QuestionCard view.
+  onDeepDive: (question: ExamQuestion) => Promise<string>;
+  onChatSend: (question: ExamQuestion, history: ChatMessage[], userMessage: string) => Promise<string>;
 }
 
 interface PerformanceMetric {
@@ -88,7 +94,82 @@ interface ReviewItem {
 
 type ReviewFilter = 'needs-review' | 'wrong' | 'flagged' | 'all';
 
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history }) => {
+// Expanded review row — its own component so it can own a stable `contentRef`
+// that scopes the QuestionTutorPanel's "Ask about this" selection detection.
+interface ReviewRowExpandedProps {
+  item: ReviewItem;
+  userAnswerText: string;
+  correctText: string;
+  onDeepDive: (question: ExamQuestion) => Promise<string>;
+  onChatSend: (question: ExamQuestion, history: ChatMessage[], userMessage: string) => Promise<string>;
+}
+
+const ReviewRowExpanded: React.FC<ReviewRowExpandedProps> = ({ item, userAnswerText, correctText, onDeepDive, onChatSend }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <div ref={contentRef} className="px-4 pb-4 pt-1 bg-slate-50/40 border-t border-slate-100 space-y-3">
+      {item.question.vignette && (
+        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.vignette}</p>
+      )}
+      <p className="text-sm font-medium text-slate-900">{item.question.leadIn}</p>
+      <ul className="space-y-1 text-sm">
+        {(['A', 'B', 'C', 'D'] as const).map(opt => {
+          const isCorrectOpt = opt === item.question.correctAnswer;
+          const isUserOpt = item.userAnswer === opt;
+          const cls = isCorrectOpt
+            ? 'bg-green-50 border-green-300 text-green-900'
+            : isUserOpt
+              ? 'bg-red-50 border-red-300 text-red-900'
+              : 'bg-white border-slate-200 text-slate-700';
+          return (
+            <li key={opt} className={`border rounded-md px-3 py-2 ${cls}`}>
+              <span className="font-bold mr-2">{opt}.</span>
+              {item.question.options[opt]}
+              {isCorrectOpt && <span className="ml-2 text-xs font-bold uppercase tracking-wider">Correct</span>}
+              {isUserOpt && !isCorrectOpt && <span className="ml-2 text-xs font-bold uppercase tracking-wider">Your answer</span>}
+            </li>
+          );
+        })}
+      </ul>
+      {!item.userAnswer && (
+        <p className="text-xs text-slate-500 italic">You did not answer this question.</p>
+      )}
+      {!item.isCorrect && item.userAnswer && (
+        <p className="text-xs text-slate-500">
+          You picked <strong className="text-red-700">{item.userAnswer}. {userAnswerText}</strong>.
+          Correct answer: <strong className="text-green-700">{item.question.correctAnswer}. {correctText}</strong>.
+        </p>
+      )}
+      {item.question.explanation && (
+        <div className="bg-white border border-slate-200 rounded-md p-3">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Explanation</div>
+          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.explanation}</p>
+        </div>
+      )}
+      {(item.question.metadata.losTested || []).length > 0 && (
+        <div className="text-xs text-slate-500">
+          <span className="font-medium text-slate-600">LOs tested:</span> {item.question.metadata.losTested.join(', ')}
+        </div>
+      )}
+      {item.question.metadata.sourceDocument && (
+        <div className="text-xs text-slate-500">
+          <span className="font-medium text-slate-600">Source:</span> {item.question.metadata.sourceDocument}
+        </div>
+      )}
+
+      {/* Deep Dive + AI Tutor — same component used in post-submit QuestionCard */}
+      <QuestionTutorPanel
+        question={item.question}
+        onDeepDive={onDeepDive}
+        onChatSend={onChatSend}
+        contentRef={contentRef}
+      />
+    </div>
+  );
+};
+
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeepDive, onChatSend }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'objectives' | 'sources' | 'review'>('overview');
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('needs-review');
   const [reviewSearch, setReviewSearch] = useState('');
@@ -768,56 +849,13 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history }) => {
                           </span>
                         </button>
                         {isExpanded && (
-                          <div className="px-4 pb-4 pt-1 bg-slate-50/40 border-t border-slate-100 space-y-3">
-                            {item.question.vignette && (
-                              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.vignette}</p>
-                            )}
-                            <p className="text-sm font-medium text-slate-900">{item.question.leadIn}</p>
-                            <ul className="space-y-1 text-sm">
-                              {(['A', 'B', 'C', 'D'] as const).map(opt => {
-                                const isCorrectOpt = opt === item.question.correctAnswer;
-                                const isUserOpt = item.userAnswer === opt;
-                                const cls = isCorrectOpt
-                                  ? 'bg-green-50 border-green-300 text-green-900'
-                                  : isUserOpt
-                                    ? 'bg-red-50 border-red-300 text-red-900'
-                                    : 'bg-white border-slate-200 text-slate-700';
-                                return (
-                                  <li key={opt} className={`border rounded-md px-3 py-2 ${cls}`}>
-                                    <span className="font-bold mr-2">{opt}.</span>
-                                    {item.question.options[opt]}
-                                    {isCorrectOpt && <span className="ml-2 text-xs font-bold uppercase tracking-wider">Correct</span>}
-                                    {isUserOpt && !isCorrectOpt && <span className="ml-2 text-xs font-bold uppercase tracking-wider">Your answer</span>}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                            {!item.userAnswer && (
-                              <p className="text-xs text-slate-500 italic">You did not answer this question.</p>
-                            )}
-                            {!item.isCorrect && item.userAnswer && (
-                              <p className="text-xs text-slate-500">
-                                You picked <strong className="text-red-700">{item.userAnswer}. {userAnswerText}</strong>.
-                                Correct answer: <strong className="text-green-700">{item.question.correctAnswer}. {correctText}</strong>.
-                              </p>
-                            )}
-                            {item.question.explanation && (
-                              <div className="bg-white border border-slate-200 rounded-md p-3">
-                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Explanation</div>
-                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.explanation}</p>
-                              </div>
-                            )}
-                            {(item.question.metadata.losTested || []).length > 0 && (
-                              <div className="text-xs text-slate-500">
-                                <span className="font-medium text-slate-600">LOs tested:</span> {item.question.metadata.losTested.join(', ')}
-                              </div>
-                            )}
-                            {item.question.metadata.sourceDocument && (
-                              <div className="text-xs text-slate-500">
-                                <span className="font-medium text-slate-600">Source:</span> {item.question.metadata.sourceDocument}
-                              </div>
-                            )}
-                          </div>
+                          <ReviewRowExpanded
+                            item={item}
+                            userAnswerText={userAnswerText}
+                            correctText={correctText}
+                            onDeepDive={onDeepDive}
+                            onChatSend={onChatSend}
+                          />
                         )}
                       </li>
                     );

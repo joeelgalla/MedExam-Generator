@@ -833,7 +833,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
         {activeTab === 'analytics' && (
             <div className="animate-fadeIn print:hidden">
                 <h2 className="text-2xl font-bold text-slate-900 mb-6">Performance Analytics: {activeProject.name}</h2>
-                <AnalyticsDashboard history={examHistory} />
+                <AnalyticsDashboard history={examHistory} onDeepDive={handleDeepDive} onChatSend={handleChatSend} />
             </div>
         )}
 
