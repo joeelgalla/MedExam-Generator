@@ -111,3 +111,9 @@ export interface GenerationConfig {
   apiKey: string;
   model: string;
 }
+
+// Per-question tutor chat. Ephemeral (in-memory only, not persisted) — see AGENTS.md.
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}

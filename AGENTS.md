@@ -17,7 +17,7 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 
 ## Structure
 - `App.tsx` — top-level shell, routing between setup / generation / review views, and Supabase auth flow.
-- `api/` — Vercel serverless functions (`generate.ts`, `analyze.ts`, `ocr.ts`). All direct AI SDK interactions live here.
+- `api/` — Vercel serverless functions (`generate.ts`, `analyze.ts`, `ocr.ts`, `chat.ts`). All direct AI SDK interactions live here.
 - `components/` — UI components
 - `services/geminiService.ts` — Maps frontend actions to Fetch calls hitting the `/api/*` Vercel endpoints.
 - `services/storageService.ts` — Handles all Supabase CRUD operations for projects.
@@ -57,6 +57,9 @@ See [CHANGES.md](./CHANGES.md) for the running log. Read it before modifying `se
 - **Expert difficulty is hidden from the generator UI** (2026-04-16) until frontend batching exists. `'expert'` is still a valid `DifficultyLevel` — completed exams still render the Expert badge. Don't remove the enum value. To re-enable, restore the button in `App.tsx` + flip the grid to `grid-cols-3`.
 - **Practice modes (`balanced` / `focused` / `targeted`)** are the only place exam history feeds back into generation. All thresholds (unlocks, mastery window, maintenance interval) live as `const`s at the top of `services/practiceMode.ts` — change them there, not inline. `generateExam` falls back to `'balanced'` automatically when the requested mode is locked or `history` is empty, so the helper is safe to call before any exams have been completed. Adding a new mode requires changes in three places: the `PracticeMode` union (`types.ts`), the unlock map + directive builder (`practiceMode.ts`), and the pill selector (`App.tsx`).
 - **`isMaintenance` is an opt-in metadata flag** the model sets on a question generated against a "MAINTENANCE LO". Keep it optional in the TS type — exams generated before 2026-04-18 won't have it. The Review tab and `QuestionCard` both render a green "Maintenance" badge when present.
+- **Per-question tutor chat (`api/chat.ts` + `QuestionCard`)** is ephemeral by design — `chatMessages` state lives inside `QuestionCard` and is lost on reload. No schema writes, no Supabase column. If persistence is ever wanted, the place to add it is `ExamQuestion.chatHistory?: ChatMessage[]` + a Supabase JSONB column; do NOT persist chat history in `Project` or `ActiveExamState`. Backend is stateless: client sends the full history array each turn. Deep Dive output, if run first, is prepended to the history by the frontend so the tutor sees it as conversational context (it is NOT rendered twice in the chat thread — it stays in the "Source Analysis" block visually and lives in the history invisibly).
+- **Chat model + config:** `gemini-2.5-flash`, `temperature: 0.3`, no thinking budget override. Stable prefix (source files + question context) lives in `systemInstruction` for implicit prompt caching; conversation turns go in `contents`. Do NOT move the prefix into `contents` — it defeats caching and makes follow-ups expensive.
+- **"Ask about this" selection popup** is scoped to `cardContentRef` (vignette + lead-in + options + explanation + Deep Dive). Selections inside the chat thread itself do NOT trigger the popup, so users can copy from replies freely. Only active when `isSubmitted === true` (review mode).
 
 ## Running
 ```

@@ -1,5 +1,5 @@
 
-import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode } from '../types';
+import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode, ChatMessage } from '../types';
 import { buildPracticeDirective, buildPracticeModeContext } from './practiceMode';
 
 // --- OCR (Image Text Extraction) ---
@@ -52,6 +52,34 @@ export const getQuestionSourceAnalysis = async (
   } catch (error) {
     console.error('Deep Dive Error:', error);
     return 'Error: Unable to analyze sources. The context may be too large or the service is busy.';
+  }
+};
+
+// --- Per-Question Tutor Chat ---
+// Stateless: caller sends full history array each turn. Backend handles the Gemini
+// contents shape. Deep Dive output, if present, should be prepended as an
+// assistant message by the caller so the tutor sees it as conversational context.
+export const sendChatMessage = async (
+  question: ExamQuestion,
+  files: UploadedFile[],
+  history: ChatMessage[],
+  userMessage: string,
+): Promise<string> => {
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, files, history, userMessage }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return `Error: ${data.error || 'Unable to send message.'}`;
+    }
+    return data.text;
+  } catch (error) {
+    console.error('Chat Error:', error);
+    return 'Error: Unable to reach the chat service.';
   }
 };
 

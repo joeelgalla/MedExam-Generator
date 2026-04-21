@@ -2,6 +2,43 @@
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.
 
+## 2026-04-20 — Per-question AI tutor chat + ask-about-selection
+
+Extends Deep Dive from a single-shot evidence lookup into a multi-turn tutor conversation, scoped per-question. Also fixes the Deep Dive vagueness issues identified earlier by enriching the prompt with signals the app was already collecting but not using.
+
+### New backend endpoint (`api/chat.ts`)
+- Stateless — the client sends the full chat history each turn. Backend maps `'assistant'` to Gemini's `'model'` role and builds the `contents` array.
+- System instruction is a concrete tutor persona: cite source by filename, quote verbatim when possible, mark reasoning-from-principle explicitly, address ruling-out logic when asked why wrong options are wrong, stay under ~600 words.
+- **Enriched context** — the stable prefix baked into `systemInstruction` includes:
+  - `metadata.sourceDocument` (from the 2026-04-16 analytics rewrite) flagged as `PRIMARY SOURCE` with other files as secondary. This was the missing signal that made Deep Dive feel vague.
+  - The full question: vignette, lead-in, all 4 options, correct answer, authoritative `explanation`, and `losTested`. The old Deep Dive path only passed vignette + lead-in + correct-answer option.
+- Model: `gemini-2.5-flash`, `temperature: 0.3`. No thinking budget override.
+- Error handling mirrors `api/generate.ts`: 403/429/503 mapped to user-friendly messages.
+
+### New TS type (`types.ts`)
+- `ChatMessage = { role: 'user' | 'assistant'; text: string }`. Ephemeral — intentionally NOT added to `Project` or `ExamQuestion`.
+
+### New service helper (`services/geminiService.ts`)
+- `sendChatMessage(question, files, history, userMessage)` — POSTs to `/api/chat` and returns the reply string. Same error-forwarding pattern as `getQuestionSourceAnalysis`.
+
+### Frontend integration (`App.tsx`, `components/QuestionCard.tsx`)
+- `App.handleChatSend` aggregates `learningObjectivesFiles` + all section files (same shape as `handleDeepDive`) and logs a `question_chat` telemetry event.
+- `QuestionCard` owns all chat UI and state: `chatMessages`, `chatInput`, `isSending`, plus refs for the input and auto-scroll.
+- Deep Dive output (if present) is prepended to the history sent to the backend as an `assistant` turn, so follow-ups see the same evidence the student is looking at. It is NOT rendered twice — it stays in the blue "Source Analysis" block visually and lives in the outbound history invisibly.
+- New `AssistantText` helper renders `**bold**` header lines + `- ` bullets without adding `react-markdown`. Used by both Deep Dive and chat assistant messages.
+
+### "Ask about this" selection popup
+- Scoped to `cardContentRef` (vignette, lead-in, options, explanation, Deep Dive). Selections inside the chat thread itself do NOT trigger the popup, so replies can be freely copied.
+- Only active in review mode (`isSubmitted === true`).
+- Click → prefills the chat input with *"What is the significance of '[selection]' in this question?"* and focuses the input. User can edit before sending.
+- Positioned with `getBoundingClientRect()` offsets relative to the content container — no external positioning library.
+
+### Design decisions
+- **Ephemeral, not persistent** — chat state lives entirely in `QuestionCard` React state. Reload = fresh chat. Keeps the Supabase schema untouched and the blast radius small. If persistence is ever wanted, the comment in AGENTS.md points to the right place (`ExamQuestion.chatHistory?`).
+- **Deep Dive kept as first-class** — rather than collapsing Deep Dive into the chat, the two cohabit. Deep Dive stays the fast "verify with source" button; chat is for follow-ups. Deep Dive output seeds the chat history automatically so follow-ups have context.
+- **Prompt caching preserved** — the heavy stable prefix (files + question context) lives in `systemInstruction`; only the conversation turns go in `contents`. Follow-up turns after the first get Gemini's implicit prompt caching discount because the system instruction is byte-identical.
+- **No new deps** — `AssistantText` is ~15 lines and handles the only markdown features we emit. No react-markdown.
+
 ## 2026-04-18 — Targeted practice modes + Question Review tab + maintenance cycling
 
 Analytics already showed *what* the user was weak on, but the generator was unaware of it. Closed the loop end-to-end: the user can now generate exams that bias toward weak spots, with an Anki-style maintenance mechanism so previously-mastered LOs don't decay.

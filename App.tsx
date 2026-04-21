@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UploadedFile, ExamQuestion, ExamAttempt, Project, DifficultyLevel, BlueprintSection, PracticeMode } from './types';
+import { UploadedFile, ExamQuestion, ExamAttempt, Project, DifficultyLevel, BlueprintSection, PracticeMode, ChatMessage } from './types';
 import { computeUnlocks, highestUnlockedMode, isModeUnlocked } from './services/practiceMode';
 import FileUpload from './components/FileUpload';
 import QuestionCard from './components/QuestionCard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm'; // IMPORT PROJECT FORM
-import { generateExam, getQuestionSourceAnalysis } from './services/geminiService';
+import { generateExam, getQuestionSourceAnalysis, sendChatMessage } from './services/geminiService';
 import { saveProject, getAllProjects, deleteProject } from './services/storageService';
 import { supabase } from './lib/supabase';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
@@ -376,7 +376,7 @@ function App() {
 
   const handleDeepDive = async (question: ExamQuestion): Promise<string> => {
       if (!activeProject) return "Error: No active project.";
-      
+
       logEvent('feature_used', { feature: 'deep_dive_source_verify' });
 
       // Aggregate all files
@@ -390,6 +390,29 @@ function App() {
       }
 
       return await getQuestionSourceAnalysis(question, allFiles);
+  };
+
+  // Per-question tutor chat. Ephemeral — chat state lives inside QuestionCard and
+  // is lost on page reload. Full history is sent to the backend each turn.
+  const handleChatSend = async (
+    question: ExamQuestion,
+    history: ChatMessage[],
+    userMessage: string,
+  ): Promise<string> => {
+      if (!activeProject) return "Error: No active project.";
+
+      logEvent('feature_used', { feature: 'question_chat' });
+
+      const allFiles = [
+          ...activeProject.learningObjectivesFiles,
+          ...activeProject.blueprint.flatMap(section => section.files)
+      ];
+
+      if (allFiles.length === 0) {
+          return "No source files available for this project.";
+      }
+
+      return await sendChatMessage(question, allFiles, history, userMessage);
   };
 
   const handleOptionSelect = (questionId: number, option: string) => {
@@ -1125,6 +1148,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                     onSelectOption={(opt) => handleOptionSelect(q.id, opt)}
                     onToggleFlag={() => handleToggleFlag(q.id)}
                     onDeepDive={handleDeepDive}
+                    onChatSend={handleChatSend}
                     isSubmitted={activeExam.status === 'completed'}
                 />
                 ))}
