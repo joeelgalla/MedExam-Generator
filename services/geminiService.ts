@@ -2,7 +2,7 @@
 import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode, ChatMessage } from '../types';
 import type { Project } from '../types';
 import { buildGenerationPrompt, MAX_BUILTIN_QUESTIONS } from './generationPrompt';
-import { validateQuestions } from './projectWorkflow';
+import { validateGeneratedQuestions } from './projectWorkflow';
 import { supabase } from '../lib/supabase';
 async function aiHeaders() {
   const {data:{session}}=await supabase.auth.getSession();
@@ -95,10 +95,10 @@ export const sendChatMessage = async (
 export const generateExam = async (project: Project): Promise<ExamQuestion[]> => {
   if (project.activeExam.questionCount > MAX_BUILTIN_QUESTIONS) throw new Error('Built-in generation supports up to 20 questions per set. For a full mock, download the AI packet and import the returned exam.');
   const prompt=buildGenerationPrompt(project);
-  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty})});
+  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty,hasObjectiveRegistry:!!project.registry})});
   const data=await response.json();
   if(!response.ok) throw new Error(data.error || 'Generation failed. Your existing exam is unchanged.');
-  const questions=validateQuestions(data.exam,project.registry);
+  const questions=validateGeneratedQuestions(data.exam,project.registry);
   // Preserve a valid shorter set without an automatic billable retry. The UI
   // reports the actual count; malformed questions still reject the whole set.
   if(questions.length>project.activeExam.questionCount) throw new Error(`The AI returned more questions than requested. The set was not installed.`);

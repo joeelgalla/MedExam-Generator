@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from './fixtures.ts';
-import {importProject,projectShare,parseProjectExam,addExam,beginProjectExam,submitProjectExam,mergePracticeBackup,emptyExam,accountCopy,allowsOnlineAI} from '../services/projectWorkflow.ts';
+import {importProject,projectShare,parseProjectExam,addExam,beginProjectExam,submitProjectExam,mergePracticeBackup,emptyExam,accountCopy,allowsOnlineAI,validateGeneratedQuestions} from '../services/projectWorkflow.ts';
 import {buildGenerationPrompt,externalPacket,questionSources} from '../services/generationPrompt.ts';
 import {totalAnsweredQuestions,buildPracticeModeContext} from '../services/practiceMode.ts';
 import {emptyState,startAttempt,finishAttempt,recordAnswer,parseExam,backup} from '../services/privatePractice.ts';
@@ -27,6 +27,35 @@ test('invalid import and foreign registry do not mutate the project',()=>{
  const p=project(),before=JSON.stringify(p),f=fixture();f.questions[0].metadata.objectiveIds=['unknown'];
  assert.throws(()=>parseProjectExam(f,p.registry),/objective/i);assert.equal(JSON.stringify(p),before);
  const foreign=fixture();foreign.registry.id='foreign';assert.throws(()=>parseProjectExam(foreign,p.registry),/different objective registry/);
+});
+test('generated citations tolerate malformed optional entries without weakening clinical or registry checks',()=>{
+ const p=project(), f=fixture();
+ const rows:any=structuredClone(f.questions);
+ rows[0].metadata.sources=[{title:'Valid source',page:12},{title:'Bad page',page:0},{title:'Bad URL',url:'javascript:alert(1)'},null];
+ const before=JSON.stringify(rows);
+ const validated=validateGeneratedQuestions(rows,p.registry);
+ assert.deepEqual(validated[0].metadata.sources,[{title:'Valid source',page:12}]);
+ assert.equal(JSON.stringify(rows),before);
+ assert.throws(()=>parseProjectExam({questions:rows},p.registry),/Source page/);
+ delete rows[0].metadata.topicId;
+ assert.throws(()=>validateGeneratedQuestions(rows,p.registry),/topic\/bucket/);
+ rows[0].metadata.topicId=f.questions[0].metadata.topicId;
+ rows[0].correctAnswer='E';
+ assert.throws(()=>validateGeneratedQuestions(rows,p.registry),/answer key/);
+ rows[0].correctAnswer=f.questions[0].correctAnswer;
+ rows[0].options.D=rows[0].options.A;
+ assert.throws(()=>validateGeneratedQuestions(rows,p.registry),/duplicate options/);
+});
+test('generated numbering and case labels cannot discard a valid set or combine distinct cases',()=>{
+ const p=project(),rows:any=structuredClone(fixture().questions);
+ rows.forEach(q=>{q.id=1;q.metadata.itemId='duplicate invalid / ID';});
+ rows[0].metadata.caseId='Case A';rows[1].metadata.caseId='Case A';rows[2].metadata.caseId='Case-A';
+ const before=JSON.stringify(rows),questions=validateGeneratedQuestions(rows,p.registry);
+ assert.deepEqual(questions.map(q=>q.id),[1,2,3]);
+ assert.ok(questions.every(q=>q.metadata.itemId===undefined));
+ assert.deepEqual(questions.map(q=>q.metadata.caseId),['case-1','case-1','case-2']);
+ assert.equal(JSON.stringify(rows),before);
+ assert.throws(()=>parseProjectExam({questions:rows},p.registry),/Item ID/);
 });
 test('import, timer, answers, submit, next exam and clean share preserve independent history',()=>{
  let p=project();const exam=parseProjectExam(fixture(),p.registry);p=addExam(p,exam);

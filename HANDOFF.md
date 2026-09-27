@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-09-27 - Generation readiness audit
+
+Claude partner reviewed the complete generation/import/account/history loop and found no reproducible data-loss defect. Addressed missing required registry fields in the Gemini response schema and malformed optional citation failures; added content-free token-usage logging. Joe approved sending relevant project sources to Gemini and the live generation test. The final private receipt owns the live result; mocked tests alone are not end-to-end proof. Cloud save and readback were already verified interactively.
+
 ## 2026-09-27 - Account storage correction
 
 Joe explicitly rejected device-only FM delivery. Added account import approval and a direct Save to account path that preserves material, banks, history and unfinished timers. Cloud storage and Gemini consent are separate. Sign-in is required before the real account transfer; do not label the FM project cloud-saved without the observed write/readback. No raw course material belongs in this public repository.
