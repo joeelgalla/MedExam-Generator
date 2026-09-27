@@ -14,6 +14,8 @@ interface QuestionCardProps {
   onDeepDive: (question: ExamQuestion) => Promise<string>;
   onChatSend: (question: ExamQuestion, history: ChatMessage[], userMessage: string) => Promise<string>;
   isSubmitted: boolean;
+  privatePractice?: boolean;
+  interactionDisabled?: boolean;
 }
 
 const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -25,11 +27,15 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   onToggleFlag,
   onDeepDive,
   onChatSend,
-  isSubmitted
+  isSubmitted,
+  privatePractice = false,
+  interactionDisabled = false
 }) => {
   // Highlight State (Local, pre-submit marker)
   // We initialize with the raw text. Subsequent highlights modify this HTML string.
-  const [vignetteHtml, setVignetteHtml] = useState<string>(question.vignette);
+  const [vignetteHtml, setVignetteHtml] = useState<string>(() => question.vignette
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
   const vignetteRef = useRef<HTMLParagraphElement>(null);
 
   // Content container ref — passed to QuestionTutorPanel so its selection
@@ -88,7 +94,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Header Metadata */}
       <div className={`px-6 py-3 border-b flex flex-wrap gap-3 items-center text-xs text-slate-600 print:bg-transparent print:border-b print:border-gray-300 ${isFlagged ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
         <span className="font-bold text-slate-900 text-sm">Q{index + 1}</span>
-        <div className="flex items-center gap-1 print:hidden">
+        {!privatePractice && <><div className="flex items-center gap-1 print:hidden">
           <BookOpen className="w-3 h-3" /> Week {question.metadata.week}
         </div>
         <div className="flex items-center gap-1 print:hidden">
@@ -107,12 +113,14 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
           >
             <RefreshCw className="w-3 h-3" /> Maintenance
           </span>
-        )}
+        )}</>}
+        {privatePractice && question.metadata.caseId && <span>Shared case</span>}
         
         {/* Flag Button */}
         {!isSubmitted && (
             <button 
                 onClick={onToggleFlag}
+                disabled={interactionDisabled}
                 className={`ml-auto flex items-center gap-1 px-2 py-1 rounded transition-colors print:hidden ${isFlagged ? 'text-orange-600 bg-orange-100 font-bold' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-50'}`}
                 title="Flag for review"
             >
@@ -127,6 +135,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         {!isSubmitted && (
             <div className="absolute top-4 right-4 print:hidden">
                  <button
+                    disabled={interactionDisabled}
                     onMouseDown={(e) => { e.preventDefault(); handleHighlight(); }} // Use onMouseDown to prevent losing focus/selection before click
                     className="p-2 text-slate-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                     title="Highlight selected text in vignette"
@@ -154,7 +163,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
             <button
               key={opt}
               onClick={() => !isSubmitted && onSelectOption(opt)}
-              disabled={isSubmitted}
+              disabled={isSubmitted || interactionDisabled}
               className={`w-full text-left p-4 rounded-lg border transition-all duration-200 flex items-start gap-3 print:border-gray-300 print:p-2 ${getOptionStyle(opt)}`}
             >
               <span className={`font-semibold min-w-[1.5rem] print:text-black ${isSubmitted && opt === question.correctAnswer ? 'text-green-700' : 'text-slate-500'}`}>
@@ -177,7 +186,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                 <div 
                     className={`flex items-center gap-2 mb-2 font-semibold ${selectedOption === question.correctAnswer ? 'text-green-600' : 'text-red-500'}`}
                 >
-                    {selectedOption === question.correctAnswer ? 'Correct' : 'Incorrect'}
+                    {selectedOption === question.correctAnswer ? 'Correct' : selectedOption ? 'Incorrect' : 'Unanswered'}
                 </div>
                 
                 <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 animate-fadeIn">
@@ -189,14 +198,14 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                         <span>LOs Tested: {question.metadata.losTested.join(', ')}</span>
                     </div>
 
-                    <div className="mt-3">
+                    {!privatePractice && <div className="mt-3">
                         <QuestionTutorPanel
                             question={question}
                             onDeepDive={onDeepDive}
                             onChatSend={onChatSend}
                             contentRef={cardContentRef}
                         />
-                    </div>
+                    </div>}
                 </div>
             </div>
         )}

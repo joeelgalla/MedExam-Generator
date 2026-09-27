@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:practice-css": "tailwindcss -c tailwind.practice.config.cjs -i practice.css -o .generated/practice.css --minify",
+    "predev": "npm run build:practice-css",
+    "prebuild": "npm run build:practice-css",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
@@ -20,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
