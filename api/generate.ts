@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { prompt, difficulty } = req.body;
+    const { prompt, difficulty, hasObjectiveRegistry } = req.body;
 
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 900000) {
       return res.status(400).json({ error: 'Provide a prompt of 1–900,000 characters; select fewer sections if necessary.' });
@@ -33,8 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? ThinkingLevel.MEDIUM
         : ThinkingLevel.LOW;
 
+    const model = process.env.GEMINI_QUESTION_MODEL?.trim() || 'gemini-3.1-pro-preview';
     const response = await ai.models.generateContent({
-      model: process.env.GEMINI_QUESTION_MODEL?.trim() || 'gemini-3.1-pro-preview',
+      model,
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -84,16 +85,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         url: { type: Type.STRING }, accessed: { type: Type.STRING },
                       }, required: ['title'] } },
                     },
-                    required: ["losTested", "cluster", "cognitiveLevel", "subtype", "week", "sourceDocument"],
+                    required: ["losTested", "cluster", "cognitiveLevel", "subtype", "week", "sourceDocument",
+                      ...(hasObjectiveRegistry === true ? ['objectiveIds', 'topicId', 'bucketId'] : [])],
                   },
                 },
                 required: ["id", "vignette", "leadIn", "options", "correctAnswer", "explanation", "metadata"],
               },
             },
           },
+          required: ['exam'],
         },
       },
     });
+
+    // Counts only: keep course content, answers and account identity out of logs.
+    console.info('Exam generation usage', JSON.stringify({
+      model,
+      promptTokens: response.usageMetadata?.promptTokenCount,
+      cachedTokens: response.usageMetadata?.cachedContentTokenCount,
+      outputTokens: response.usageMetadata?.candidatesTokenCount,
+      thinkingTokens: response.usageMetadata?.thoughtsTokenCount,
+      totalTokens: response.usageMetadata?.totalTokenCount,
+    }));
 
     if (response.text) {
       let cleanText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();

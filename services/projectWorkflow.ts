@@ -9,6 +9,25 @@ const str = (v: any, label: string, max = 12000): string => { if (typeof v !== '
 const ident = (v: any, label: string): string => { const s = str(v, label, 120); if (!/^[A-Za-z0-9][A-Za-z0-9_.:#-]*$/.test(s) || ['__proto__', 'constructor', 'prototype'].includes(s)) throw new Error(`Invalid ${label}.`); return s; };
 const list = (v: any, label: string, max = 2000): any[] => { if (!Array.isArray(v) || v.length > max) throw new Error(`Invalid ${label}.`); return v; };
 const int = (v: any, label: string, min: number, max: number): number => { if (!Number.isInteger(v) || v < min || v > max) throw new Error(`Invalid ${label}.`); return v; };
+function parseSource(s: any) {
+  obj(s,'Source');
+  if (s.url && (!/^https:\/\//.test(s.url) || !URL.canParse(s.url))) throw new Error('Source URLs must be valid HTTPS links.');
+  return { title:str(s.title,'Source title',500), ...(s.page !== undefined ? {page:int(s.page,'Source page',1,100000)}:{}), ...(s.url ? {url:str(s.url,'Source URL',2000)}:{}), ...(s.accessed ? {accessed:str(s.accessed,'Source date',40)}:{}) };
+}
+// Model citations are optional hints. A malformed hint must not discard a paid
+// response; question content, answer keys and objective mappings remain strict.
+// User-imported files still use validateQuestions directly and fail visibly.
+export function validateGeneratedQuestions(value: unknown, registry?: ObjectiveRegistry): ExamQuestion[] {
+  const rows = list(value,'Questions',200).map(v => {
+    const q = obj(v,'Question'), m = obj(q.metadata,'Question metadata');
+    if (m.sources === undefined) return q;
+    const sources = (Array.isArray(m.sources) ? m.sources.slice(0,20) : []).flatMap(s => {
+      try { return [parseSource(s)]; } catch { return []; }
+    });
+    return {...q, metadata:{...m, sources}};
+  });
+  return validateQuestions(rows,registry);
+}
 export function parseRegistry(value: unknown): ObjectiveRegistry {
   const r = obj(value, 'Registry');
   const buckets = Object.fromEntries(Object.entries(obj(r.buckets, 'Buckets')).map(([k,v]) => [ident(k,'Bucket ID'), str(v,'Bucket',250)]));
@@ -43,11 +62,7 @@ export function validateQuestions(value: unknown, registry?: ObjectiveRegistry, 
     }
     const itemId = m.itemId ? ident(m.itemId,'Item ID') : undefined;
     if (itemId && items.has(itemId)) throw new Error(`Duplicate item ID ${itemId}.`); if (itemId) items.add(itemId);
-    const sources = m.sources === undefined ? undefined : list(m.sources,'Sources',20).map(s => {
-      obj(s,'Source');
-      if (s.url && (!/^https:\/\//.test(s.url) || !URL.canParse(s.url))) throw new Error('Source URLs must be valid HTTPS links.');
-      return { title:str(s.title,'Source title',500), ...(s.page !== undefined ? {page:int(s.page,'Source page',1,100000)}:{}), ...(s.url ? {url:str(s.url,'Source URL',2000)}:{}), ...(s.accessed ? {accessed:str(s.accessed,'Source date',40)}:{}) };
-    });
+    const sources = m.sources === undefined ? undefined : list(m.sources,'Sources',20).map(parseSource);
     return { id, vignette: typeof q.vignette === 'string' && !q.vignette.trim() ? '' : str(q.vignette,'Vignette'), leadIn:str(q.leadIn,'Lead-in',3000), options, correctAnswer:q.correctAnswer, explanation:str(q.explanation,'Explanation'),
       metadata: { losTested:list(m.losTested,'Learning objectives',30).map(x=>str(x,'Objective',5000)), cluster:str(m.cluster,'Cluster',250), cognitiveLevel:m.cognitiveLevel, subtype:str(m.subtype,'Subtype',80) as any, week: m.week === undefined ? 0 : int(m.week,'Week',0,1000), ...(objectiveIds ? {objectiveIds}:{}), ...(topicId ? {topicId}:{}), ...(bucketId ? {bucketId}:{}), ...(itemId ? {itemId}:{}), ...(m.caseId ? {caseId:ident(m.caseId,'Case ID')}:{}), ...(m.sourceDocument ? {sourceDocument:str(m.sourceDocument,'Source document',500)}:{}), ...(sources ? {sources}:{}), ...(m.isMaintenance === true ? {isMaintenance:true}:{}) } };
   });
