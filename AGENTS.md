@@ -36,7 +36,7 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 - Rules are written generically — they apply to any Temerty block, not just a specific one. When tuning for a specific block, prefer adding to the rules over replacing them.
 
 ## Model roles (do not break this split)
-- **`GEMINI_QUESTION_MODEL` (default `gemini-3-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The production default is retained for this release; a model-name change alone is not proof that a live error is fixed. All AI handlers are disabled on Vercel preview deployments pending API authentication work.
+- **`GEMINI_QUESTION_MODEL` (default `gemini-3.1-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The retired 3.0 ID returned an upstream 404 confirmed in Vercel logs on 2026-09-27; the default now follows the replacement named by that error. A mocked SDK transport check verifies request and response compatibility, not a billable end-to-end generation. All AI handlers are disabled on Vercel preview deployments pending API authentication work.
 - **`gemini-2.5-flash`** — OCR (`extractTextFromImage`), media transcription (`transcribeMedia`), and Deep Dive source verification (`getQuestionSourceAnalysis`). Retrieval/extraction only — never swap Flash in for question generation.
 
 ## Recent changes & rationale
