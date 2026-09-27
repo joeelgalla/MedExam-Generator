@@ -2,9 +2,9 @@
 
 ## 2026-09-27 - Enforce generated objective tags and tolerate malformed citation hints
 
-Registry-backed generation now requires objectiveIds, topicId and bucketId in Gemini's response schema. Optional malformed generated citations are discarded without relaxing question, answer-key, objective or imported-file validation. Server logs record token counts and model only.
+Registry-backed generation now requires objectiveIds, topicId and bucketId in Gemini's response schema. Optional malformed generated citations are discarded without relaxing question, answer-key, objective or imported-file validation. Generated question numbers and app-owned item IDs are normalized; linked-case labels map without collisions. Server logs record token counts and model only.
 
-Validation: 49 tests, TypeScript, production build and diff checks passed. Regression checks cover registry versus legacy schema requirements, token-only logging, malformed citations, and retained strict answer/objective validation. Live generation is checked after deployment and recorded in the private delivery receipt.
+Validation: 50 tests, TypeScript, production build and diff checks passed. Regression checks cover registry versus legacy schema requirements, token-only logging, malformed citations, and retained strict answer/objective validation. Live generation is checked after deployment and recorded in the private delivery receipt.
 
 ## 2026-09-27 - Save device projects to an account
 

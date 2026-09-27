@@ -18,13 +18,24 @@ function parseSource(s: any) {
 // response; question content, answer keys and objective mappings remain strict.
 // User-imported files still use validateQuestions directly and fail visibly.
 export function validateGeneratedQuestions(value: unknown, registry?: ObjectiveRegistry): ExamQuestion[] {
-  const rows = list(value,'Questions',200).map(v => {
+  const cases = new Map<string,string>();
+  const rows = list(value,'Questions',200).map((v,i) => {
     const q = obj(v,'Question'), m = obj(q.metadata,'Question metadata');
-    if (m.sources === undefined) return q;
+    const metadata = {...m};
+    // The app owns bank IDs. Normalize model numbering before strict validation;
+    // map case labels bijectively so punctuation cannot merge distinct cases.
+    delete metadata.itemId;
+    delete metadata.caseId;
+    if (typeof m.caseId === 'string' && m.caseId.trim()) {
+      const label=m.caseId.trim();
+      if (!cases.has(label)) cases.set(label,`case-${cases.size+1}`);
+      metadata.caseId=cases.get(label);
+    }
+    if (m.sources === undefined) return {...q,id:i+1,metadata};
     const sources = (Array.isArray(m.sources) ? m.sources.slice(0,20) : []).flatMap(s => {
       try { return [parseSource(s)]; } catch { return []; }
     });
-    return {...q, metadata:{...m, sources}};
+    return {...q,id:i+1,metadata:{...metadata,sources}};
   });
   return validateQuestions(rows,registry);
 }

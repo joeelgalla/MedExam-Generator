@@ -46,6 +46,17 @@ test('generated citations tolerate malformed optional entries without weakening 
  rows[0].options.D=rows[0].options.A;
  assert.throws(()=>validateGeneratedQuestions(rows,p.registry),/duplicate options/);
 });
+test('generated numbering and case labels cannot discard a valid set or combine distinct cases',()=>{
+ const p=project(),rows:any=structuredClone(fixture().questions);
+ rows.forEach(q=>{q.id=1;q.metadata.itemId='duplicate invalid / ID';});
+ rows[0].metadata.caseId='Case A';rows[1].metadata.caseId='Case A';rows[2].metadata.caseId='Case-A';
+ const before=JSON.stringify(rows),questions=validateGeneratedQuestions(rows,p.registry);
+ assert.deepEqual(questions.map(q=>q.id),[1,2,3]);
+ assert.ok(questions.every(q=>q.metadata.itemId===undefined));
+ assert.deepEqual(questions.map(q=>q.metadata.caseId),['case-1','case-1','case-2']);
+ assert.equal(JSON.stringify(rows),before);
+ assert.throws(()=>parseProjectExam({questions:rows},p.registry),/Item ID/);
+});
 test('import, timer, answers, submit, next exam and clean share preserve independent history',()=>{
  let p=project();const exam=parseProjectExam(fixture(),p.registry);p=addExam(p,exam);
  assert.equal(addExam(p,exam).savedExams?.length,1);
