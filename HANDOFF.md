@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-09-27 - Finalization in progress
+
+The newly connected Vercel connector confirms the generator failure: retired model `gemini-3-pro-preview` returned 404 on 2026-09-26 at 22:59:45 UTC. Replacement default and mocked transport regression check are on `codex/fm-finalize`; 24 tests, typecheck and build pass. No database changes or paid API calls. Clinical exam files remain outside this public repository.
+
 ## 2026-09-26 — Import/share release
 
 Joe asked to finish friend sharing and make the mode usable from the normal app. Added links from sign-in and project list; exam-only export and a copyable friend message preserve each learner's answers/history separately. 23 tests, typecheck and build passed. Browser share download/copy and fresh-learner import/start passed. Production question-model default is retained to avoid coupling this release to the unconfirmed generator repair. No database changes. Private question files remain outside git and hosting.
