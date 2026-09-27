@@ -31,6 +31,7 @@ const getSessionId = () => {
 };
 
 export const logEvent = async (event: TelemetryEvent, payload: TelemetryPayload = {}) => {
+  if(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('local')==='1') return;
   const sessionId = getSessionId();
   const timestamp = new Date().toISOString();
 

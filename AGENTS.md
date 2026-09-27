@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for AI coding agents working in this repo — **Antigravity agents and Claude Code**. If you're a human, `README.md` is a better starting point.
+Guidance for AI coding agents working in this repo — **Codex, Antigravity and Claude Code**. If you're a human, `README.md` is a better starting point.
 
 ## What this app is
 MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns uploaded medical lecture material and learning objectives into a structured practice exam. All AI calls go through `@google/genai` (Gemini).
@@ -36,7 +36,7 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 - Rules are written generically — they apply to any Temerty block, not just a specific one. When tuning for a specific block, prefer adding to the rules over replacing them.
 
 ## Model roles (do not break this split)
-- **`GEMINI_QUESTION_MODEL` (default `gemini-3.1-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The retired 3.0 ID returned an upstream 404 confirmed in Vercel logs on 2026-09-27; the default now follows the replacement named by that error. A mocked SDK transport check verifies request and response compatibility, not a billable end-to-end generation. All AI handlers are disabled on Vercel preview deployments pending API authentication work.
+- **`GEMINI_QUESTION_MODEL` (default `gemini-3.1-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The retired 3.0 ID returned an upstream 404 confirmed in Vercel logs on 2026-09-27; the default now follows the replacement named by that error. A mocked SDK transport check verifies request and response compatibility, not a billable end-to-end generation. All AI handlers are disabled on Vercel preview deployments. Production requires a remotely verified Supabase bearer token and AI_ALLOWED_USER_IDS allowlist.
 - **`gemini-2.5-flash`** — OCR (`extractTextFromImage`), media transcription (`transcribeMedia`), and Deep Dive source verification (`getQuestionSourceAnalysis`). Retrieval/extraction only — never swap Flash in for question generation.
 
 ## Recent changes & rationale
@@ -70,9 +70,19 @@ npm run dev       # vite dev server
 npm run build     # production bundle
 ```
 
-Requires `API_KEY` in `.env.local` (Gemini API key).
+See README.md for server-only GEMINI_API_KEY, Supabase configuration and the mandatory AI_ALLOWED_USER_IDS access list. Vite alone does not serve API routes.
 
 ## When in doubt
 - Read `CHANGES.md` first — recent decisions are there.
 - Preserve the Flash/Pro split.
 - Don't add dependencies for things a small helper can do.
+
+## Reusable project workflow (2026-09-27)
+
+- `services/projectWorkflow.ts`: import/share/backup validation and timed project attempts. Imports never reset history. Share exports are explicit allowlists; never export raw Project as a friend share.
+- `services/generationPrompt.ts` + `lib/examRules.ts`: common source for built-in and external-AI packet instructions. Preserve complete section scope and exact registry IDs; do not silently trim source material. Built-in limit is 20 questions per call.
+- `services/localProjects.ts`: IndexedDB recovery. A delayed cloud result must compare against the original local version before replacing the device copy.
+- `services/projectMerge.ts`: completed histories/banks merge by stable ID; conflicting immutable records stop the merge. A settings-only copy cannot erase an unfinished exam. `storageService.ts` isolates per-project conflicts into local recovery copies and uses existing-column compare-and-swap. No migration required.
+- `components/ProjectExamTools.tsx`: the same project hosts original-bank practice, new imports, shared recipe, external packet and history restoration. Device-marked shared projects cannot silently upload through the cloud importer.
+- `lib/server/aiAuth.ts`: required remote token verification + owner allowlist before model access on every paid route. Preview disables all AI, even with override variables. Never use display_name or the public invite code as AI authorization.
+- Clinical material stays outside this public repository. Structural validation and mocked transport tests do not certify live generation or clinical quality.

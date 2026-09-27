@@ -1,6 +1,6 @@
 
 import React, { useMemo, useRef, useState } from 'react';
-import { ExamAttempt, ExamQuestion, ChatMessage } from '../types';
+import { ExamAttempt, ExamQuestion, ChatMessage, ObjectiveRegistry } from '../types';
 import QuestionTutorPanel from './QuestionTutorPanel';
 import {
   BarChart3,
@@ -25,6 +25,7 @@ import {
 
 interface AnalyticsDashboardProps {
   history: ExamAttempt[];
+  registry?: ObjectiveRegistry;
   // Deep Dive + AI Tutor chat handlers — required so the Review Questions tab
   // can offer source verification and follow-up chat on past questions. Same
   // handlers used by the post-submit QuestionCard view.
@@ -47,6 +48,7 @@ interface QuestionEvent {
   attemptId: string;
   questionId: number;
   week: number;
+  group: string;
   cluster: string;
   cognitiveLevel: string;
   los: string[];
@@ -169,7 +171,7 @@ const ReviewRowExpanded: React.FC<ReviewRowExpandedProps> = ({ item, userAnswerT
   );
 };
 
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeepDive, onChatSend }) => {
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, registry, onDeepDive, onChatSend }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'objectives' | 'sources' | 'review'>('overview');
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('needs-review');
   const [reviewSearch, setReviewSearch] = useState('');
@@ -181,13 +183,15 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
     history.forEach(attempt => {
       const flagSet = new Set(attempt.flaggedQuestions || []);
       attempt.questions.forEach(q => {
+        if(!['A','B','C','D'].includes(attempt.answers[q.id])) return;
         out.push({
           attemptId: attempt.id,
           questionId: q.id,
           week: q.metadata.week,
-          cluster: (q.metadata.cluster || 'Uncategorized').trim(),
+          group: (q.metadata.bucketId && registry?.buckets[q.metadata.bucketId]) || (q.metadata.bucketId ? `Bucket ${q.metadata.bucketId}` : `Week ${q.metadata.week}`),
+          cluster: registry?.topics[q.metadata.topicId || '']?.title || (q.metadata.cluster || 'Uncategorized').trim(),
           cognitiveLevel: q.metadata.cognitiveLevel,
-          los: (q.metadata.losTested || []).map(s => s.trim()).filter(Boolean),
+          los: (q.metadata.objectiveIds?.length ? q.metadata.objectiveIds : q.metadata.losTested || []).map(s => s.trim()).filter(Boolean),
           sourceDocument: q.metadata.sourceDocument?.trim() || undefined,
           isCorrect: attempt.answers[q.id] === q.correctAnswer,
           isFlagged: flagSet.has(q.id),
@@ -195,7 +199,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
       });
     });
     return out;
-  }, [history]);
+  }, [history,registry]);
 
   // Review items: every past question with its answer/correctness/flag — newest first.
   const reviewItems = useMemo<ReviewItem[]>(() => {
@@ -221,7 +225,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
   const filteredReviewItems = useMemo<ReviewItem[]>(() => {
     const needle = reviewSearch.trim().toLowerCase();
     return reviewItems.filter(item => {
-      if (reviewFilter === 'wrong' && item.isCorrect) return false;
+      if (reviewFilter === 'wrong' && (item.isCorrect || !item.userAnswer)) return false;
       if (reviewFilter === 'flagged' && !item.isFlagged) return false;
       if (reviewFilter === 'needs-review' && item.isCorrect && !item.isFlagged) return false;
       if (!needle) return true;
@@ -241,7 +245,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
     let flagged = 0;
     let needsReview = 0;
     reviewItems.forEach(item => {
-      if (!item.isCorrect) wrong += 1;
+      if (item.userAnswer && !item.isCorrect) wrong += 1;
       if (item.isFlagged) flagged += 1;
       if (!item.isCorrect || item.isFlagged) needsReview += 1;
     });
@@ -257,7 +261,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
   };
 
   const stats = useMemo(() => {
-    if (events.length === 0) return null;
+    if (history.length === 0) return null;
 
     const weekStats: Record<string, PerformanceMetric> = {};
     const levelStats: Record<string, PerformanceMetric> = {};
@@ -269,7 +273,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
     let totalFlagged = 0;
 
     events.forEach(ev => {
-      updateMetric(weekStats, `Week ${ev.week}`, ev);
+      updateMetric(weekStats, ev.group, ev);
       updateMetric(levelStats, `Level ${ev.cognitiveLevel}`, ev);
       updateMetric(clusterStats, ev.cluster, ev);
       ev.los.forEach(lo => updateMetric(loStats, lo, ev));
@@ -290,7 +294,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
     return {
       totalAttempts: history.length,
       totalQuestionsAnswered: events.length,
-      averageAccuracy: Math.round((totalCorrect / events.length) * 100),
+      averageAccuracy: events.length ? Math.round((totalCorrect / events.length) * 100) : 0,
       totalFlagged,
       weekPerformance: formatRecord(weekStats).sort(byAlpha),
       levelPerformance: formatRecord(levelStats).sort(byAlpha),
@@ -318,14 +322,13 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
     if (!weakestWeek || weakestWeek[1].needsReviewPct === 0) return null;
 
     const [weekLabel, weekMetric] = weakestWeek;
-    const weekNumber = Number(weekLabel.replace(/^Week\s*/, ''));
-    const weekEvents = events.filter(e => e.week === weekNumber);
+    const weekEvents = events.filter(e => e.group === weekLabel);
 
     // 2. Within that week, weakest LO
     const loInWeek: Record<string, PerformanceMetric> = {};
     weekEvents.forEach(ev => ev.los.forEach(lo => updateMetric(loInWeek, lo, ev)));
     const weakestLo = formatRecord(loInWeek)
-      .filter(([, m]) => m.total >= 2)
+      .filter(([, m]) => m.total >= 5)
       .sort((a, b) => b[1].needsReviewPct - a[1].needsReviewPct)[0];
 
     // 3. Within that week+LO, which source document is most implicated
@@ -364,7 +367,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
     if (!stats) return { strengths: [], recommendations: [] as string[] };
 
     const strengths = stats.clusterPerformance
-      .filter(([, m]) => m.accuracyPct >= 80 && m.total >= 2)
+      .filter(([, m]) => m.accuracyPct >= 80 && m.total >= 5)
       .sort((a, b) => b[1].accuracyPct - a[1].accuracyPct)
       .slice(0, 3)
       .map(([topic, metric]) => ({ topic, score: metric.accuracyPct }));
@@ -450,7 +453,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
           </div>
           <div>
             <div className="text-sm text-slate-500 font-medium">Avg Accuracy</div>
-            <div className="text-3xl font-bold text-slate-900">{stats.averageAccuracy}%</div>
+            <div className="text-3xl font-bold text-slate-900">{stats.totalQuestionsAnswered ? `${stats.averageAccuracy}%` : '—'}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -482,14 +485,14 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
         </div>
       </div>
 
-      {/* 2. AI Study Coach — hierarchical drilldown */}
+      {/* 2. Study guidance — hierarchical drilldown */}
       <div className="bg-gradient-to-br from-white to-blue-50 rounded-xl border border-blue-100 shadow-sm p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <BrainCircuit className="w-32 h-32" />
         </div>
         <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
           <BrainCircuit className="w-5 h-5 text-blue-600" />
-          AI Study Coach
+          Study guidance
         </h3>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
@@ -654,7 +657,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
               <div className="space-y-8">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-slate-500" /> Weekly Breakdown
+                    <Calendar className="w-4 h-4 text-slate-500" /> {registry ? 'Study buckets' : 'Weekly breakdown'}
                   </h3>
                   {stats.weekPerformance.map(([week, metric]) => renderProgressBar(week, metric))}
                 </div>
@@ -693,7 +696,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
                   <tbody className="divide-y divide-slate-100">
                     {stats.loPerformance.map(([lo, metric]) => (
                       <tr key={lo} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 text-slate-700 font-medium">{lo}</td>
+                        <td className="px-4 py-3 text-slate-700 font-medium">{lo}{registry?.objectives[lo]?.text && <p className="text-xs font-normal text-slate-500 mt-1">{registry.objectives[lo].text}</p>}</td>
                         <td className="px-4 py-3 text-center text-slate-500">{metric.total}</td>
                         <td className="px-4 py-3 text-center text-slate-500">{metric.correct}</td>
                         <td className="px-4 py-3 text-center">
@@ -711,8 +714,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {metric.accuracyPct >= 80 ? (
-                            <span className="inline-flex px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">Mastered</span>
+                          {metric.total < 5 ? <span className="text-xs text-slate-500">Limited data</span> : metric.accuracyPct >= 80 ? (
+                            <span className="inline-flex px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">Strong so far</span>
                           ) : metric.accuracyPct < 60 ? (
                             <span className="inline-flex px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold">Review</span>
                           ) : (
@@ -814,7 +817,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
                           className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors"
                         >
                           <span className="mt-0.5 flex-shrink-0">
-                            {item.isCorrect
+                            {!item.userAnswer ? <span className="text-slate-500">Skipped</span> : item.isCorrect
                               ? <CheckCircle2 className="w-4 h-4 text-green-500" />
                               : <XCircle className="w-4 h-4 text-red-500" />}
                           </span>
@@ -822,7 +825,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, onDeep
                             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mb-1">
                               <span className="font-medium text-slate-600">{new Date(item.attemptDate).toLocaleDateString()}</span>
                               <span className="text-slate-300">·</span>
-                              <span>Week {item.question.metadata.week}</span>
+                              <span>{item.question.metadata.bucketId ? registry?.buckets[item.question.metadata.bucketId] || item.question.metadata.bucketId : `Week ${item.question.metadata.week}`}</span>
                               <span className="text-slate-300">·</span>
                               <span>L{item.question.metadata.cognitiveLevel}</span>
                               {item.question.metadata.cluster && (

@@ -11,6 +11,7 @@ interface FileUploadProps {
   title?: string;
   description?: string;
   className?: string;
+  allowOnlineProcessing?: boolean;
 }
 
 interface ProcessingFile {
@@ -26,7 +27,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   onFilesChanged,
   title = "Upload Files",
   description = "PDF, DOCX, PPTX, XLSX, TXT, Images, or Audio/Video (MP3, MP4)",
-  className = ""
+  className = "",
+  allowOnlineProcessing = false
 }) => {
   // We keep a separate list for files currently processing or failed.
   // Successful files move to 'files' prop.
@@ -50,7 +52,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     // We process concurrently but update state individually
     await Promise.all(newProcessingItems.map(async (item) => {
       try {
-        const result = await readFileContent(item.file);
+        const result = await readFileContent(item.file,allowOnlineProcessing);
         successfullyProcessed.push(result);
 
         // Remove from processing list upon success
@@ -78,7 +80,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       const droppedFiles = Array.from(e.dataTransfer.files) as File[];
       await processFiles(droppedFiles);
     },
-    [files, onFilesChanged]
+    [files, onFilesChanged, allowOnlineProcessing]
   );
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {

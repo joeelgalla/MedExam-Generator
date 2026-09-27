@@ -1,4 +1,4 @@
-import { ExamAttempt, ExamQuestion, PracticeMode } from '../types';
+import type { ExamAttempt, ExamQuestion, PracticeMode } from '../types.ts';
 
 // --- Tunables (kept here so the dashboard, generator, and prompt all agree) ---
 
@@ -9,10 +9,10 @@ export const PRACTICE_MODE_UNLOCKS: Record<PracticeMode, number> = {
 };
 
 // An LO must have at least this many attempts before we'll call it weak or mastered.
-const MIN_LO_SAMPLE = 3;
+const MIN_LO_SAMPLE = 5;
 
 // Last-N attempts on an LO used to judge current mastery state.
-const MASTERY_WINDOW = 3;
+const MASTERY_WINDOW = 8;
 
 // Accuracy threshold over the mastery window required to consider an LO "mastered".
 const MASTERY_THRESHOLD = 0.85;
@@ -67,7 +67,7 @@ export interface PracticeModeContext {
   loStats: LoStat[]; // sorted: weakest first, then alphabetical
   weakLos: string[];
   strongLos: string[];
-  maintenanceLos: string[]; // mastered LOs whose interval has elapsed
+  maintenanceLos: string[]; // strong LOs whose interval has elapsed
   recentWrongStems: string[]; // up to MAX_RECENT_WRONG_STEMS, newest first
 }
 
@@ -75,7 +75,7 @@ export interface PracticeModeContext {
 
 export function totalAnsweredQuestions(history: ExamAttempt[]): number {
   let n = 0;
-  for (const attempt of history) n += attempt.questions.length;
+  for (const attempt of history) n += attempt.questions.filter(q => ['A','B','C','D'].includes(attempt.answers[q.id])).length;
   return n;
 }
 
@@ -122,10 +122,11 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
 
   for (const attempt of ordered) {
     for (const q of attempt.questions) {
+      if (!['A','B','C','D'].includes(attempt.answers[q.id])) continue;
       const isCorrect = attempt.answers[q.id] === q.correctAnswer;
       const isMaintenance = q.metadata.isMaintenance === true;
       const ev: LoEvent = { globalIdx, isCorrect, isMaintenance };
-      for (const raw of q.metadata.losTested || []) {
+      for (const raw of q.metadata.objectiveIds?.length ? q.metadata.objectiveIds : q.metadata.losTested || []) {
         const lo = raw.trim();
         if (!lo) continue;
         const arr = loToEvents.get(lo);
@@ -194,7 +195,7 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
 
   const weakLos = loStats.filter(s => s.weak).map(s => s.lo).slice(0, MAX_WEAK_LOS_IN_PROMPT);
 
-  // Strongest = highest accuracy mastered LOs. Take from the end of the sorted list.
+  // Strongest = highest accuracy strong LOs. Take from the end of the sorted list.
   const strongLos = [...loStats]
     .filter(s => s.mastered)
     .sort((a, b) => b.accuracy - a.accuracy || b.totalAttempts - a.totalAttempts)
@@ -239,7 +240,7 @@ export function buildPracticeDirective(mode: PracticeMode, ctx: PracticeModeCont
     lines.push('- Other LOs are unchanged.');
   } else {
     lines.push('');
-    lines.push('Mode: TARGETED — drill weak material, skip what the user has already mastered.');
+    lines.push('Mode: TARGETED — drill weak material, reduce well-practised material.');
     lines.push('- Generate questions ONLY for the WEAK LOs and for any LO not yet attempted (untested LOs are fair game).');
     lines.push('- Do NOT generate questions for the STRONG LOs unless they appear in the MAINTENANCE list below.');
     lines.push('- Maintain blueprint section weights as best you can given the remaining LO pool.');
