@@ -49,3 +49,36 @@ test('production generation uses the replacement model and parses a mocked SDK r
     }
   }
 });
+
+test('upstream failures are never automatically retried and zero Pro quota names the billing action', async () => {
+  const savedEnv={...process.env}, originalFetch=globalThis.fetch, originalError=console.error;
+  Object.assign(process.env,{VERCEL_ENV:'production',GEMINI_API_KEY:'synthetic-test-key',VITE_SUPABASE_URL:'https://synthetic.supabase.co',VITE_SUPABASE_ANON_KEY:'synthetic',AI_ALLOWED_USER_IDS:'synthetic-user'});
+  delete process.env.DISABLE_AI;
+  const errors: unknown[][]=[];console.error=(...args)=>{errors.push(args);};
+  let calls=0;
+  const message='Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: synthetic-pro';
+  globalThis.fetch=async(input,init)=>{
+    const request=new Request(input,init);
+    if(request.url.includes('/auth/v1/user')) return new Response(JSON.stringify({id:'synthetic-user',is_anonymous:false}),{headers:{'content-type':'application/json'}});
+    calls++;
+    return new Response(JSON.stringify({error:{code:429,status:'RESOURCE_EXHAUSTED',message}}),{status:429,headers:{'content-type':'application/json'}});
+  };
+  try {
+    for(const route of ['generate','analyze','chat','ocr']) {
+      const bundle=await build({entryPoints:[`api/${route}.ts`],bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
+      const module={exports:{} as {default:(req:unknown,res:unknown)=>Promise<unknown>}};
+      new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
+      let status=0,body:any;const before=calls;
+      const res={status(n:number){status=n;return this;},json(v:unknown){body=v;return this;}};
+      await module.exports.default({method:'POST',headers:{authorization:'Bearer synthetic'},body:{prompt:'Synthetic question',question:{vignette:'Synthetic',leadIn:'Test',options:{A:'One'},correctAnswer:'A'},files:[],history:[],userMessage:'Explain',base64Data:'AA==',mimeType:'image/png'}},res);
+      assert.equal(calls-before,1,route);
+      if(route==='generate') {assert.equal(status,429,String(errors.at(-1)?.[1]));assert.match(body.error,/zero quota/);assert.match(body.error,/billing in Google AI Studio/);}
+      else assert.ok(status>=400,route);
+    }
+  } finally {
+    globalThis.fetch=originalFetch;console.error=originalError;
+    for(const k of ['VERCEL_ENV','GEMINI_API_KEY','VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','AI_ALLOWED_USER_IDS','DISABLE_AI']) {
+      if(savedEnv[k]===undefined)delete process.env[k];else process.env[k]=savedEnv[k];
+    }
+  }
+});
