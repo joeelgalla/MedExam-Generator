@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { aiDisabled } from '../lib/server/aiPolicy.js';
 
 const SYSTEM_INSTRUCTION = `
 You are an expert exam question generator for medical students.
@@ -51,6 +52,7 @@ When PART 3 is absent, follow the blueprint exactly as before and omit \`isMaint
 `;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (aiDisabled(process.env)) return res.status(503).json({ error: 'AI generation is disabled on this preview. Use private practice to import a reviewed exam.' });
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -76,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : ThinkingLevel.LOW;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: process.env.GEMINI_QUESTION_MODEL || 'gemini-3.1-pro-preview',
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -116,6 +118,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                       week: { type: Type.INTEGER },
                       sourceDocument: { type: Type.STRING },
                       isMaintenance: { type: Type.BOOLEAN },
+                      objectiveIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      topicId: { type: Type.STRING },
+                      bucketId: { type: Type.STRING },
+                      itemId: { type: Type.STRING },
+                      caseId: { type: Type.STRING },
+                      sources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: {
+                        title: { type: Type.STRING }, page: { type: Type.INTEGER },
+                        url: { type: Type.STRING }, accessed: { type: Type.STRING },
+                      }, required: ['title'] } },
                     },
                     required: ["losTested", "cluster", "cognitiveLevel", "subtype", "week", "sourceDocument"],
                   },

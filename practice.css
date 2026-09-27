@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { font-family: ui-sans-serif, system-ui, sans-serif; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-blue-600;
+  }
+}
+@layer components {
+  .practice-button { @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50; }
+  .practice-primary { @apply practice-button border-blue-700 bg-blue-700 text-white hover:bg-blue-800; }
+  .practice-panel { @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm; }
+}

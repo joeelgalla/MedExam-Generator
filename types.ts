@@ -51,6 +51,13 @@ export interface QuestionMetadata {
   week: number;
   sourceDocument?: string; // Filename of the lecture material doc that most directly inspired this question (optional for backward compat with pre-2026-04-16 exams)
   isMaintenance?: boolean; // Regenerated question on a previously-mastered LO to prevent forgetting — shown with a "Maintenance" badge.
+  // Optional imported-bank identifiers. The registry travels with a private exam.
+  objectiveIds?: string[];
+  topicId?: string;
+  bucketId?: string;
+  itemId?: string;
+  caseId?: string;
+  sources?: Array<{ title: string; page?: number; url?: string; accessed?: string }>;
 }
 
 export interface ExamQuestion {

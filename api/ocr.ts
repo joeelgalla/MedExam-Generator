@@ -1,7 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
+import { aiDisabled } from '../lib/server/aiPolicy.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (aiDisabled(process.env)) return res.status(503).json({ error: 'AI extraction is disabled on this preview.' });
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
