@@ -113,11 +113,11 @@ export function projectShare(p: Project, includeSources=true, includeExams=true)
   return {format:'medexam-project',version:1,name:p.name,description:p.description,questionWritingInstructions:p.questionWritingInstructions || '',styleExamples:p.styleExamples || [],registry:p.registry,referenceTotalQuestions:p.referenceTotalQuestions,
     learningObjectivesFiles:p.learningObjectivesFiles.map(f=>({...f})),blueprint:p.blueprint.map(s=>({...s,files:includeSources?s.files:[]})),savedExams:includeExams?(p.savedExams || []):[],storageMode:'local'};
 }
-export function importProject(value: any, userId: string, mode:'local'|'cloud'): Project {
+export function importProject(value: any, userId: string, mode:'local'|'cloud', cloudUploadApproved=false): Project {
   const backup=value?.format==='medexam-project-backup'; const v=obj(backup?value.project:value,'Project');
   const registry=v.registry?parseRegistry(v.registry):undefined;
   const file=(f:any)=>{obj(f,'Source file');return {id:ident(f.id,'File ID'),name:str(f.name,'File name',500),type:['pdf','docx','txt','xlsx','pptx','image'].includes(f.type)?f.type:'txt',content:typeof f.content==='string'?f.content.replace(/\0/g,''):'',size:Number(f.size)||0,...(f.topicIds?{topicIds:list(f.topicIds,'File topics').map(x=>ident(x,'Topic ID'))}:{})};};
-  if(v.storageMode==='local' && mode==='cloud') throw new Error('This file is marked for device storage. Open On this device and import it there. It has not been uploaded.');
+  if(v.storageMode==='local' && mode==='cloud' && !cloudUploadApproved) throw new Error('Confirm saving this device project to your account before uploading its material.');
   const project:Project={id:crypto.randomUUID(),userId,name:str(v.name,'Project name',250),description:typeof v.description==='string'?v.description:'',questionWritingInstructions:typeof v.questionWritingInstructions==='string'?v.questionWritingInstructions:'',styleExamples:v.styleExamples?.length?validateQuestions(v.styleExamples,registry):[],registry,referenceTotalQuestions:int(v.referenceTotalQuestions || 40,'Reference count',1,1000),learningObjectivesFiles:list(v.learningObjectivesFiles || [],'Objective files').map(file),blueprint:list(v.blueprint,'Blueprint').map(s=>({id:ident(s.id,'Section ID'),title:str(s.title,'Section title',250),description:typeof s.description==='string'?s.description:'',questionCount:String(s.questionCount || '1'),files:list(s.files || [],'Section files').map(file)})),savedExams:list(v.savedExams || [],'Saved exams',200).map(e=>parseProjectExam(e,registry,!e.registry)),storageMode:mode,allowOnlineAI:mode==='cloud',lastModified:new Date().toISOString(),examHistory:[],activeExam:emptyExam()};
   if(new Set(project.blueprint.map(x=>x.id)).size!==project.blueprint.length) throw new Error('Duplicate section IDs.');
   if(backup) {
@@ -131,7 +131,7 @@ export function importProject(value: any, userId: string, mode:'local'|'cloud'):
       return {id:ident(a.id,'Attempt ID'),date:a.date,answers,questions,score:questions.filter(q=>answers[q.id]===q.correctAnswer).length,totalQuestions:questions.length,flaggedQuestions:flags};
     });
     if(new Set(project.examHistory.map(a=>a.id)).size!==project.examHistory.length) throw new Error('Duplicate attempt IDs in backup.');
-    project.archivedExams=list(v.archivedExams || [],'Unfinished exams',100).map(a=>importProject({format:'medexam-project-backup',project:{...v,examHistory:[],savedExams:[],archivedExams:[],activeExam:a}},userId,mode).activeExam);
+    project.archivedExams=list(v.archivedExams || [],'Unfinished exams',100).map(a=>importProject({format:'medexam-project-backup',project:{...v,examHistory:[],savedExams:[],archivedExams:[],activeExam:a}},userId,mode,cloudUploadApproved).activeExam);
     if(v.activeExam?.questions?.length) {
       const a=v.activeExam,questions=validateQuestions(a.questions,registry,true),answers=obj(a.userAnswers,'Active answers');
       for(const [k,v] of Object.entries(answers)) if(!questions.some(q=>String(q.id)===k)||!['A','B','C','D'].includes(v as string)) throw new Error('Invalid active answer.');
@@ -142,7 +142,23 @@ export function importProject(value: any, userId: string, mode:'local'|'cloud'):
       project.activeExam={...emptyExam(),questions,userAnswers:answers,flaggedQuestions:flags,status:a.status==='completed'?'completed':'active',configOpen:false,durationMinutes:duration,...(startedAt?{startedAt,endsAt:a.endsAt}:{}),...(a.attemptId?{attemptId:ident(a.attemptId,'Attempt ID')}:{}),...(a.examId?{examId:ident(a.examId,'Exam ID')}:{}),...(a.title?{title:str(a.title,'Title',250)}:{})};
     }
   }
+  // Account storage and permission to send sources to Gemini are independent.
+  project.allowOnlineAI=mode==='cloud' && v.storageMode!=='local' && v.allowOnlineAI!==false;
   return project;
+}
+export function allowsOnlineAI(project:Project):boolean {
+  return project.allowOnlineAI ?? project.storageMode!=='local';
+}
+
+export async function accountCopy(project:Project,userId:string):Promise<Project> {
+  if(project.storageMode!=='local') throw new Error('This project is already in an account.');
+  if(!userId || userId==='local') throw new Error('Sign in to save this project to your account.');
+  // Stable per source and owner: retrying an interrupted upload cannot create duplicates.
+  const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(['medexam-account-copy-v1',userId,project.id])))).slice(0,16);
+  bytes[6]=(bytes[6]&15)|80;bytes[8]=(bytes[8]&63)|128;
+  const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  const id=`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  return {...structuredClone(project),id,userId,storageMode:'cloud',allowOnlineAI:project.allowOnlineAI===true,cloudSyncedAt:undefined,syncPending:true,syncNotice:undefined,lastModified:new Date().toISOString()};
 }
 export function downloadText(filename: string, text: string, type='application/json') {
   const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);

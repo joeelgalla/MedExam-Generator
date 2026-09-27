@@ -1,6 +1,6 @@
 import React, {useRef,useState} from 'react';
 import type {Project,SavedExam} from '../types';
-import {parseProjectExam,addExam,mergePracticeBackup,downloadText,projectShare,emptyExam} from '../services/projectWorkflow';
+import {parseProjectExam,addExam,mergePracticeBackup,downloadText,projectShare,emptyExam,allowsOnlineAI} from '../services/projectWorkflow';
 import {externalPacket,selectedSections} from '../services/generationPrompt';
 export default function ProjectExamTools({project,onUpdate,onStart,onError,canUseAI}:{project:Project;onUpdate:(p:Project)=>void;onStart:(e:SavedExam)=>void;onError:(s:string)=>void;canUseAI:boolean}) {
   const file=useRef<HTMLInputElement>(null), backup=useRef<HTMLInputElement>(null);
@@ -48,8 +48,8 @@ export default function ProjectExamTools({project,onUpdate,onStart,onError,canUs
       <label className="block text-sm"><input type="checkbox" checked={shareSources} onChange={e=>setShareSources(e.target.checked)}/> Include reference documents</label>
       <label className="block text-sm"><input type="checkbox" checked={shareExams} onChange={e=>setShareExams(e.target.checked)}/> Include saved exams and their grading keys</label>
       <button className="px-3 py-2 border rounded" onClick={()=>downloadText(`${project.name}.medexam`,JSON.stringify(projectShare(project,shareSources,shareExams)))}>Download shared project</button>
-      <p className="text-xs text-slate-500">Send the file yourself. Your friend opens this app, chooses On this device → Import, and picks the file. Personal answers, flags, timers, account identity and history are excluded.</p>
+      <p className="text-xs text-slate-500">Send the file yourself. Your friend signs in, chooses Import, and approves saving the file to their own account. They can also choose On this device for offline-only storage. Personal answers, flags, timers, account identity and history are excluded.</p>
     </div></details>
-    {project.storageMode==='local'&&<label className="block text-sm border-t pt-3"><input type="checkbox" checked={project.allowOnlineAI===true} onChange={e=>onUpdate({...project,allowOnlineAI:e.target.checked})}/> Allow selected material to be sent to Gemini when I use built-in generation, the tutor or image/audio extraction. {canUseAI?'':'Sign in separately to use built-in AI; the downloaded packet works without an account.'}</label>}
+    {<label className="block text-sm border-t pt-3"><input type="checkbox" checked={allowsOnlineAI(project)} onChange={e=>onUpdate({...project,allowOnlineAI:e.target.checked})}/> Allow selected material to be sent to Gemini when I use built-in generation, the tutor or image/audio extraction. {canUseAI?'':'Sign in separately to use built-in AI; the downloaded packet works without an account.'}</label>}
   </section>;
 }

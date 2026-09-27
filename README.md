@@ -4,7 +4,7 @@ Reusable study projects for medical rotations: keep learning objectives, topic r
 
 ## Use the app
 
-Open https://med-exam-generator.vercel.app/ and choose **On this device** for a project that stays in that browser, or sign in for account projects. The standalone player remains at `/practice.html`.
+Open https://med-exam-generator.vercel.app/ and **sign in** to keep projects and progress in your account across devices. **On this device** is an optional mode that stays in one browser. The standalone player remains at `/practice.html`.
 
 1. Create a project or **Import** a shared `.medexam` file.
 2. Open it and start a saved exam, **Import exam** from a JSON file, or **Paste exam JSON**.
@@ -13,7 +13,7 @@ Open https://med-exam-generator.vercel.app/ and choose **On this device** for a 
 5. Built-in generation uses the same instructions, references, worked examples and answered-question evidence. It supports up to 20 questions per request. Use the packet/import route for a full 60-question mock. A shorter valid response is saved with its actual count; there is no automatic paid retry.
 6. **Share this project** exports the recipe, objectives and optionally references/exams. The recipient gets a new project with empty progress. **Share exam** exports only that exam and its grading key. **Download private backup** includes personal work and is for recovery, not sharing.
 
-A shared project is marked for device storage to prevent an accidental cloud upload. Each learner explicitly enables online AI for a device project before material can be sent through generation or tutor requests. Keep held-out exam recalls out of project source files and examples.
+Shared files can be imported into your account after confirming the cloud upload. For an existing device project, use **Sign in to save to account**, then **Save to account**. This preserves its sources, exams, answers, flags and timer, keeps the original device copy as a backup, and opens the saved account project. Retrying uses the same account-scoped ID. Account storage and Gemini permission are separate; transferring a device project does not turn Gemini on. Keep held-out exam recalls out of project source files and examples.
 
 ## Data and compatibility
 

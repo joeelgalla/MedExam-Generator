@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from './fixtures.ts';
-import {importProject,projectShare,parseProjectExam,addExam,beginProjectExam,submitProjectExam,mergePracticeBackup,emptyExam} from '../services/projectWorkflow.ts';
+import {importProject,projectShare,parseProjectExam,addExam,beginProjectExam,submitProjectExam,mergePracticeBackup,emptyExam,accountCopy,allowsOnlineAI} from '../services/projectWorkflow.ts';
 import {buildGenerationPrompt,externalPacket,questionSources} from '../services/generationPrompt.ts';
 import {totalAnsweredQuestions,buildPracticeModeContext} from '../services/practiceMode.ts';
 import {emptyState,startAttempt,finishAttempt,recordAnswer,parseExam,backup} from '../services/privatePractice.ts';
@@ -65,7 +65,30 @@ test('imported numbering normalizes safely and duplicate answer options are reje
 });
 
 test('a local-marked shared project cannot silently upload through a cloud import',()=>{
- const shared=projectShare(project());assert.throws(()=>importProject(shared,'cloud-user','cloud'),/device storage/);
+ const shared=projectShare(project());assert.throws(()=>importProject(shared,'cloud-user','cloud'),/Confirm saving/);
+ const cloud=importProject(shared,'cloud-user','cloud',true);
+ assert.equal(cloud.storageMode,'cloud');assert.equal(cloud.userId,'cloud-user');assert.equal(allowsOnlineAI(cloud),false);
+ assert.deepEqual(cloud.blueprint,project().blueprint);assert.deepEqual(cloud.registry,project().registry);
+});
+test('account copy preserves the full study project and active timer with stable owner-scoped identity',async()=>{
+ let p=project();const exam=parseProjectExam(fixture(),p.registry);p=addExam(p,exam);
+ p=beginProjectExam(p,exam,1000);p.activeExam.userAnswers={1:'B'};p.activeExam.flaggedQuestions=[1];p=submitProjectExam(p,2000);
+ p=beginProjectExam(p,exam,3000);p.activeExam.userAnswers={2:'A'};p.activeExam.flaggedQuestions=[2];
+ const before=structuredClone(p),cloud=await accountCopy(p,'owner');
+ assert.deepEqual(p,before);assert.notEqual(cloud.id,p.id);assert.equal(cloud.storageMode,'cloud');assert.equal(cloud.userId,'owner');
+ for(const field of ['activeExam','examHistory','savedExams','blueprint','registry','styleExamples','learningObjectivesFiles','questionWritingInstructions'] as const)assert.deepEqual(cloud[field],p[field]);
+ assert.equal(cloud.id,(await accountCopy(p,'owner')).id);assert.notEqual(cloud.id,(await accountCopy(p,'friend')).id);
+ assert.equal(allowsOnlineAI(cloud),false);assert.equal(cloud.cloudSyncedAt,undefined);
+ await assert.rejects(()=>accountCopy(p,'local'),/Sign in/);await assert.rejects(()=>accountCopy(cloud,'owner'),/already/);
+});
+test('cloud backup approval covers archived attempts and never silently enables Gemini',()=>{
+ const p=project(),exam=parseProjectExam(fixture(),p.registry);
+ p.archivedExams=[beginProjectExam(p,exam,1000).activeExam];
+ const restored=importProject({format:'medexam-project-backup',project:p},'owner','cloud',true);
+ assert.equal(restored.archivedExams?.[0].endsAt,p.archivedExams[0].endsAt);assert.equal(allowsOnlineAI(restored),false);
+ assert.equal(allowsOnlineAI({...restored,allowOnlineAI:true}),true);
+ assert.equal(allowsOnlineAI({...restored,allowOnlineAI:undefined}),true);
+ assert.equal(allowsOnlineAI({...p,allowOnlineAI:undefined}),false);
 });
 test('large histories use compact scoped avoidance without dropping ID-based evidence',()=>{
  const p=project();p.activeExam.questionCount=20;
