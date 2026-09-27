@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture } from './fixtures.ts';
 import { aiDisabled } from '../lib/server/aiPolicy.ts';
-import { STORAGE_KEY, parseExam, emptyState, parseState, parseBackup, backup, startAttempt, finishAttempt, recordAnswer, mergeBackup, score, remainingSeconds, saveState } from '../services/privatePractice.ts';
+import { STORAGE_KEY, parseExam, emptyState, parseState, parseBackup, backup, startAttempt, finishAttempt, recordAnswer, mergeBackup, score, remainingSeconds, saveState, examShare } from '../services/privatePractice.ts';
 import type { PracticeState } from '../services/privatePractice.ts';
 
 const started = () => startAttempt(emptyState(), parseExam(fixture()), 'attempt-1', 100000);
@@ -11,6 +11,23 @@ const fakeStorage = () => {
   const map = new Map<string, string>();
   return { getItem: (key: string) => map.get(key) ?? null, setItem: (key: string, value: string) => { map.set(key, value); } };
 };
+
+test('sharing exports only a validated exam, never personal attempt data or URL tokens', () => {
+  const original = completed();
+  const exam: any = { ...structuredClone(original.history[0].exam), answers: { 1: 'B' }, flags: [1], history: original.history };
+  exam.questions[0].userAnswer = 'B';
+  const shared = examShare(exam, 'https://example.com/practice.html?private=token#secret');
+  const imported = parseExam(JSON.parse(shared.contents));
+  assert.deepEqual(imported, original.history[0].exam);
+  assert.doesNotMatch(shared.contents, /"answers"|"flags"|"history"|"userAnswer"|"startedAt"/);
+  assert.doesNotMatch(shared.message, /private=token|#secret/);
+  assert.match(shared.message, /https:\/\/example.com\/practice.html/);
+  const friend = startAttempt(emptyState(), imported, 'friend-attempt', 500000);
+  assert.deepEqual(friend.active!.answers, {});
+  assert.deepEqual(friend.active!.flags, []);
+  assert.equal(friend.history.length, 0);
+  assert.equal(original.history.length, 1);
+});
 
 test('exam import validates exact registry row IDs and normalizes legacy metadata', () => {
   const e = parseExam(fixture());

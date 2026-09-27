@@ -78,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : ThinkingLevel.LOW;
 
     const response = await ai.models.generateContent({
-      model: process.env.GEMINI_QUESTION_MODEL || 'gemini-3.1-pro-preview',
+      model: process.env.GEMINI_QUESTION_MODEL || 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,

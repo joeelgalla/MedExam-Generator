@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-26 — Import and share exams
+
+- Added entry links on sign-in and project list, an exam-only share download, and copyable instructions for a friend. Shared exams exclude personal answers, flags, timers and history.
+- Verified 23 tests, typecheck/build, actual browser download/copy and import into fresh learner storage.
+- Retained the original production generation-model default; generation repair remains separate.
+
 Existing application history is in [CHANGES.md](CHANGES.md).
 
 ## 2026-09-26

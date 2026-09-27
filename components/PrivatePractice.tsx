@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import QuestionCard from './QuestionCard';
 import {
   STORAGE_KEY, MAX_IMPORT_BYTES, emptyState, parseState, parseExam, parseBackup,
-  backup, startAttempt, finishAttempt, recordAnswer, mergeBackup, score, remainingSeconds, saveState,
+  backup, startAttempt, finishAttempt, recordAnswer, mergeBackup, score, remainingSeconds, saveState, examShare,
 } from '../services/privatePractice';
 import type { Answer, PracticeAttempt, PracticeExam, PracticeState } from '../services/privatePractice';
 
@@ -29,6 +29,8 @@ export default function PrivatePractice() {
   const [state, setState] = useState(boot.state);
   const stateRef = useRef(state);
   const [pending, setPending] = useState<PracticeExam | null>(null);
+  const [sharing, setSharing] = useState<PracticeExam | null>(null);
+  const [copied, setCopied] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(Date.now);
@@ -159,19 +161,22 @@ export default function PrivatePractice() {
   const disabled = blocked || !lockReady;
   const previouslySeen = new Set(state.history.flatMap(a => a.exam.questions.map(q => `${a.exam.registry.id}:${q.metadata.itemId}`)));
   const repeats = pending?.questions.filter(q => previouslySeen.has(`${pending.registry.id}:${q.metadata.itemId}`)).length || 0;
+  const share = sharing ? examShare(sharing, window.location.href) : null;
+
+  function openShare(exam: PracticeExam) { setSharing(exam); setCopied(false); }
 
   return <main className="mx-auto max-w-6xl px-4 py-6 sm:px-7 sm:py-9">
     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-blue-700">MedExam</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">Private practice</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-600">Import a reviewed exam and practise here. Questions and answers stay in this browser. No account or AI calls.</p>
+        <a href="/" className="text-xs font-bold uppercase tracking-widest text-blue-700">MedExam Generator</a>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">Import & share exams</h1>
+        <p className="mt-2 max-w-2xl text-sm text-slate-600">Take the same exam with a friend. Each person has their own timer, answers and results. No account needed.</p>
       </div>
       <button className="practice-button" onClick={() => download(backup(stateRef.current), 'MedExam.practice-backup.json')}>Download backup</button>
     </header>
 
     <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-      Progress belongs to this browser and this site address. Export a backup before switching devices, changing preview links, or clearing browser data.
+      Questions and progress stay in your browser. Use Share exam to send a question file to a friend. Download a backup for your own progress before switching devices or clearing browser data.
     </div>
     {boot.error && <div role="alert" className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
       <p>{boot.error}</p>
@@ -180,7 +185,16 @@ export default function PrivatePractice() {
     {error && <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950">{error}</div>}
     {saveError ? <div role="alert" className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
       <p>{saveError}</p><button className="practice-button mt-3" disabled={disabled} onClick={() => commit(s => ({ ...s }))}>Retry save</button>
-    </div> : <p role="status" className="mb-4 text-xs text-slate-500">{savedAt ? `Saved on this browser at ${new Date(savedAt).toLocaleTimeString()}` : state.active || state.history.length ? 'Saved practice loaded from this browser' : 'Ready for an exam file'}</p>}
+    </div> : <p role="status" className="mb-4 text-xs text-slate-500">{savedAt ? `Saved on this browser at ${new Date(savedAt).toLocaleTimeString()}` : state.active || state.history.length ? 'Saved practice loaded from this browser' : pending ? 'Exam ready — timer has not started' : 'Ready for an exam file'}</p>}
+
+    {sharing && share && <section role="dialog" aria-modal="false" aria-labelledby="share-title" className="practice-panel mb-6 border-blue-300">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="share-title" className="text-xl font-bold">Share exam with a friend</h2><button className="practice-button" onClick={() => setSharing(null)}>Close sharing</button></div>
+      <p className="mt-3 text-sm text-slate-600">Send the exam file and the message below. The file includes the questions and grading key; the app hides explanations until submission. Your chosen answers, flags and history are not included.</p>
+      <button className="practice-primary mt-4" onClick={() => download(share.contents, share.filename)}>Download exam to share</button>
+      <label htmlFor="share-message" className="mt-4 block text-sm font-semibold">Message for your friend</label>
+      <textarea id="share-message" readOnly rows={5} value={share.message} className="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm" />
+      <button className="practice-button mt-3" onClick={async () => { try { await navigator.clipboard.writeText(share.message); setCopied(true); } catch { setCopied(false); setError('Copy is unavailable here. Select and copy the message above.'); } }}>{copied ? 'Message copied' : 'Copy message'}</button>
+    </section>}
 
     {!state.active && <section className="practice-panel mb-6">
       <div className="flex flex-wrap gap-3">
@@ -196,7 +210,7 @@ export default function PrivatePractice() {
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{pending.instructions}</p>
         {repeats > 0 && <p className="mt-3 text-sm text-amber-800">You have already completed {repeats} of these items. This will be a repeat attempt.</p>}
         <p className="mt-3 text-sm text-slate-600">The timer starts below and keeps running if you leave. At zero, your answers are submitted automatically.</p>
-        <button className="practice-primary mt-4" disabled={disabled} onClick={start}>Start timed exam</button>
+        <div className="mt-4 flex flex-wrap gap-3"><button className="practice-primary" disabled={disabled} onClick={start}>Start timed exam</button><button className="practice-button" onClick={() => openShare(pending)}>Share exam</button></div>
       </div>}
     </section>}
 
@@ -213,6 +227,7 @@ export default function PrivatePractice() {
           <select id="question-filter" value={filter} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" onChange={e => { setFilter(e.target.value as typeof filter); setIndex(0); }}>
             <option value="all">All questions</option><option value="unanswered">Unanswered</option><option value="flagged">Flagged</option>{isReview && <option value="incorrect">Incorrect (answered)</option>}
           </select>
+          <button className="practice-button" onClick={() => openShare(attempt.exam)}>Share exam</button>
           {state.active && <button className="practice-button ml-auto" disabled={disabled} onClick={() => setConfirmSubmit(true)}>Finish exam</button>}
         </div>
         {confirmSubmit && <div role="alert" className="mt-4 rounded-lg bg-amber-50 p-4">
@@ -252,7 +267,7 @@ export default function PrivatePractice() {
       <p className="mt-1 text-sm text-slate-500">Practice results are observations, not mastery labels. Unanswered items count toward the exam score and are shown separately.</p>
       {!state.history.length ? <p className="mt-4 text-sm text-slate-500">Your finished exams will appear here.</p> : <ul className="mt-4 divide-y divide-slate-100">{[...state.history].reverse().map(a => {
         const s = score(a);
-        return <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-semibold">{a.exam.title}</p><p className="text-xs text-slate-500">{stamp(a.completedAt!)} · {s.correct}/{s.total} · {s.skipped} unanswered</p></div><button className="practice-button" disabled={Boolean(state.active)} onClick={() => { setReviewId(a.id); setPending(null); setIndex(0); setFilter('all'); }}>Review attempt</button></li>;
+        return <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-semibold">{a.exam.title}</p><p className="text-xs text-slate-500">{stamp(a.completedAt!)} · {s.correct}/{s.total} · {s.skipped} unanswered</p></div><div className="flex flex-wrap gap-2"><button className="practice-button" onClick={() => openShare(a.exam)}>Share exam</button><button className="practice-button" disabled={Boolean(state.active)} onClick={() => { setReviewId(a.id); setPending(null); setIndex(0); setFilter('all'); }}>Review attempt</button></div></li>;
       })}</ul>}
     </section>
   </main>;

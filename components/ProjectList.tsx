@@ -55,6 +55,10 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
+      <a href="/practice.html" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-5 text-blue-900 hover:bg-blue-100">
+        <div><h2 className="text-lg font-bold">Import & share exams</h2><p className="mt-1 text-sm">Have a question file? Take a timed exam or share it with a friend. Each person keeps their own results.</p></div>
+        <ArrowRight className="h-5 w-5 shrink-0" />
+      </a>
       <div className="flex justify-between items-end mb-8">
         <div>
           <h2 className="text-3xl font-bold text-slate-900">Your Projects</h2>

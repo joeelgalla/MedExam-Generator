@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-09-26 — Import/share release
+
+Joe asked to finish friend sharing and make the mode usable from the normal app. Added links from sign-in and project list; exam-only export and a copyable friend message preserve each learner's answers/history separately. 23 tests, typecheck and build passed. Browser share download/copy and fresh-learner import/start passed. Production question-model default is retained to avoid coupling this release to the unconfirmed generator repair. No database changes. Private question files remain outside git and hosting.
+
 ## 2026-09-26 — Private practice preview in progress
 
 Branch `codex/fm-private-practice` starts at `87d38f7`. Build an isolated, browser-local practice route for imported, reviewed exams; preserve the existing cloud app and projects. No database migrations, production deployment, or merge to main. Keep all course documents, objective catalogs, private exams and recalled exam material outside this public repository and hosting bundle. Use synthetic fixtures only for tests.

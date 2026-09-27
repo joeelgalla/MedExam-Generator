@@ -541,6 +541,10 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                      <span className="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Beta Access</span>
                 </div>
                 
+                <a href="/practice.html" className="mb-6 block rounded-xl border border-blue-200 bg-blue-50 p-4 text-center text-blue-900 hover:bg-blue-100">
+                    <span className="block font-bold">Import & share exams</span>
+                    <span className="mt-1 block text-sm">Take a question file from a friend. No account needed.</span>
+                </a>
                 {/* Auth Tabs */}
                 <div className="flex mb-6 bg-slate-100 p-1 rounded-lg">
                     <button 

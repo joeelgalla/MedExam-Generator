@@ -124,6 +124,19 @@ export function parseExam(value: unknown): PracticeExam {
     instructions: text(v.instructions, 'Instructions', 5000), registry, questions };
 }
 
+// An exam share contains the question bank and grading key, never a learner's
+// answers, timer, flags or attempt history. Re-parse to allowlist every field.
+export function examShare(value: unknown, playerUrl: string) {
+  const exam = parseExam(value);
+  const url = new URL(playerUrl);
+  url.pathname = '/practice.html'; url.search = ''; url.hash = '';
+  return {
+    filename: `${exam.examId}.exam.json`,
+    contents: JSON.stringify(exam, null, 2),
+    message: `Let's try ${exam.title} (${exam.questions.length} questions, ${exam.durationMinutes} minutes).\nOpen ${url.href}\nClick Import exam and choose the attached ${exam.examId}.exam.json file. Start when you're ready; we each get our own timer, answers and results.`,
+  };
+}
+
 function parseAttempt(value: unknown, completed: boolean): PracticeAttempt {
   const v = object(value, 'Attempt'), exam = parseExam(v.exam);
   const keys = new Set(exam.questions.map(q => String(q.id)));

@@ -1,6 +1,8 @@
-# Private practice preview
+# Import and share exams
 
 Open `/practice.html`. Import a reviewed `.exam.json` file, then start the timed exam. Answers, flags and completed attempts are saved in browser storage at this origin. There is no account, cloud sync, AI generation or tutor on this page. Download a backup before moving to another device or preview address. A changed deployment address has separate browser storage.
+
+The sign-in screen and project list both link to **Import & share exams**. **Share exam** downloads an exam-only file and supplies a message with the app address. Send both to a friend; they import the file and start with empty answers and their own timer/history. The share includes the grading key for local marking, hidden in the interface until submission. It does not include your answers, flags or attempts. **Download backup** is for transferring your own progress, not sharing a fresh exam.
 
 This is a separate entry in the existing app. The normal `/` page retains the original cloud workflow. No database migration is required. Private exams must never be imported into that cloud workflow. Do not commit course documents, private question banks, objective catalogs or backups to this public repository.
 
