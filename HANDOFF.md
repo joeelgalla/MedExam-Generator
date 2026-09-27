@@ -1,5 +1,10 @@
 # Handoff
 
+## 2026-09-27 - Account storage correction
+
+Joe explicitly rejected device-only FM delivery. Added account import approval and a direct Save to account path that preserves material, banks, history and unfinished timers. Cloud storage and Gemini consent are separate. Sign-in is required before the real account transfer; do not label the FM project cloud-saved without the observed write/readback. No raw course material belongs in this public repository.
+
+
 ## 2026-09-27 - Project workflow release
 
 Joe requested implementation and finalization after Claude partner review. Branch `codex/project-workflow` extends existing projects rather than replacing the app. All curriculum, exams and review transcripts remain outside this public repo. README documents the complete workflow and current limits. Local imports work without login; cloud data belongs to the authenticated account. No schema migration.

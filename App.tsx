@@ -9,7 +9,7 @@ import ProjectList from './components/ProjectList';
 import ExamTimer from './components/ExamTimer';
 import ProjectExamTools from './components/ProjectExamTools';
 import {cachedProjects,cacheProject} from './services/localProjects';
-import {emptyExam,importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam,downloadText} from './services/projectWorkflow';
+import {emptyExam,importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam,downloadText,accountCopy,allowsOnlineAI} from './services/projectWorkflow';
 import {questionSources,MAX_BUILTIN_QUESTIONS} from './services/generationPrompt';
 import ProjectForm from './components/ProjectForm'; // IMPORT PROJECT FORM
 import { generateExam, getQuestionSourceAnalysis, sendChatMessage } from './services/geminiService';
@@ -27,6 +27,8 @@ function App() {
   const localMode = new URLSearchParams(window.location.search).get('local') === '1';
   const [saveMessage,setSaveMessage]=useState('');
   const [saveFailed,setSaveFailed]=useState(false);
+  const [savingToAccount,setSavingToAccount]=useState(false);
+  const savingToAccountRef=useRef(false);
   const [otherTab,setOtherTab]=useState(false);
   const otherTabRef=useRef(false);
   const cloudTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
@@ -191,6 +193,10 @@ function App() {
     try {
       const loadedProjects=localMode?await cachedProjects('local'):await getAllProjects(userId);
       setProjects(loadedProjects);
+      const requestedId=new URLSearchParams(window.location.search).get('project');
+      const localId=new URLSearchParams(window.location.search).get('localProject');
+      const requested=loadedProjects.find(p=>p.id===requestedId) || (localId?(await cachedProjects('local')).find(p=>p.id===localId):undefined);
+      if(requested){projectRef.current=requested;setActiveProject(requested);setSaveMessage(requested.storageMode==='local'?'Ready to save to your account':'Loaded from your account');}
       const notice=loadedProjects.find(p=>p.syncNotice)?.syncNotice;
       if(notice){setSaveMessage(notice);setSaveFailed(false);}
     } catch(err) {
@@ -209,8 +215,24 @@ function App() {
     await installProject({id:crypto.randomUUID(),userId:localMode?'local':currentUserId!,name,description,questionWritingInstructions:instructions,lastModified:new Date().toISOString(),referenceTotalQuestions:referenceTotal,learningObjectivesFiles:[],blueprint,examHistory:[],savedExams:[],storageMode:localMode?'local':'cloud',allowOnlineAI:!localMode,activeExam:emptyExam()});
   };
   const handleImportProject=async(data:unknown)=>{
-    try{await installProject(importProject(data,localMode?'local':currentUserId!,localMode?'local':'cloud'));}
+    try{
+      const input=data as {format?:string;project?:{storageMode?:string};storageMode?:string};
+      const deviceMarked=(input?.format==='medexam-project-backup'?input.project:input)?.storageMode==='local';
+      if(!localMode&&deviceMarked&&!window.confirm('Save this project to your account? Its reference material, objectives and exams will be uploaded to your private Supabase account. A private backup also includes your answers and progress. Gemini will remain off.'))return;
+      await installProject(importProject(data,localMode?'local':currentUserId!,localMode?'local':'cloud',!localMode&&deviceMarked));
+    }
     catch(e){setSaveMessage((e as Error).message);setSaveFailed(true);}
+  };
+  const handleSaveToAccount=async()=>{
+    const source=projectRef.current;
+    if(!source || !currentUserId || otherTabRef.current || savingToAccountRef.current)return;
+    savingToAccountRef.current=true;setSavingToAccount(true);setError(null);setSaveMessage('Saving project to your account…');
+    try {
+      const copy=await accountCopy(source,currentUserId);
+      const saved=await saveProject(copy);
+      // Only switch after a confirmed cloud write. Keep the original device backup.
+      window.location.assign(`/?project=${encodeURIComponent(saved.id)}`);
+    } catch(e){savingToAccountRef.current=false;setError((e as Error).message);setSaveMessage('Account save did not finish. The original project is still saved on this device.');setSaveFailed(true);setSavingToAccount(false);}
   };
   const handleDeleteProject=async(id:string)=>{
     const p=projects.find(x=>x.id===id);if(!p)return;
@@ -218,6 +240,7 @@ function App() {
     catch(e){setSaveMessage((e as Error).message);setSaveFailed(true);}
   };
   const updateActiveProject=async(updatedProject:Project,flush=false)=>{
+    if(savingToAccountRef.current)return;
     if(otherTabRef.current){setError('This project is open in another tab. Continue there, or close it and reopen this project.');return;}
     const next={...updatedProject,lastModified:new Date(Math.max(Date.now(),Date.parse(updatedProject.lastModified)+1)).toISOString()};
     projectRef.current=next;setActiveProject(next);setProjects(prev=>prev.map(p=>p.id===next.id?next:p));setSaveMessage('Saving…');
@@ -295,7 +318,7 @@ function App() {
   const aiAllowed=()=>{
     if(otherTabRef.current){setError('This project is open in another tab. Use that tab for AI requests.');return false;}
     if(!isAuthenticated) {setError('Sign in to use built-in AI, or use Download AI packet and Import exam.');return false;}
-    if(activeProject?.storageMode==='local' && !activeProject.allowOnlineAI){setError('Enable sending selected materials to Gemini, or use the downloaded AI packet.');return false;}
+    if(activeProject && !allowsOnlineAI(activeProject)){setError('Enable sending selected materials to Gemini, or use the downloaded AI packet.');return false;}
     return true;
   };
   const handleGenerate=async()=>{
@@ -646,7 +669,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                     </button>
                 </div>
             </header>
-            <div className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap gap-3 text-sm"><strong>{localMode?'On this device':'Your cloud account'}</strong><a className="underline" href={localMode?'/?signin=1':'/?local=1'} target={localMode?'_blank':undefined} rel="noreferrer">{localMode?(isAuthenticated?'Open cloud projects':'Sign in for built-in AI'):'Open device projects'}</a><p role="status" className={saveFailed?'text-red-700':'text-slate-600'}>{saveMessage}</p></div>
+            <div className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap gap-3 text-sm"><strong>{localMode?'On this device':'Your cloud account'}</strong><a className="underline" href={localMode?'/?signin=1':'/?local=1'} target={localMode?'_blank':undefined} rel="noreferrer">{localMode?(isAuthenticated?'Open cloud projects':'Sign in for account sync and AI'):'Open device projects'}</a><p role="status" className={saveFailed?'text-red-700':'text-slate-600'}>{saveMessage}</p></div>
             <ProjectList 
                 projects={projects} 
                 onSelectProject={p=>{setError(null);setGenerationNotice('');setActiveTab('exam');projectRef.current=p;setActiveProject(p);if(p.syncPending){setSaveMessage('Device changes awaiting cloud sync…');persist(p);}else setSaveMessage(p.storageMode==='local'?'Loaded from this device':'Loaded from your account');}}
@@ -742,13 +765,15 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
       )}
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow print:max-w-none print:p-0">
-        <div className="mb-4 text-sm flex flex-wrap gap-3 items-center print:hidden"><strong>{activeProject.storageMode==='local'?'On this device':'Cloud project'}</strong><span role="status" className={saveFailed?'text-red-700 font-bold':'text-slate-500'}>{saveMessage}</span>{saveFailed&&<><button className="underline" onClick={()=>persist(activeProject)}>Retry save</button><button className="underline" onClick={()=>downloadText(`${activeProject.name}.project-backup.json`,JSON.stringify({format:'medexam-project-backup',version:1,project:activeProject}))}>Download recovery backup</button></>}{localMode&&!isAuthenticated&&<a href="/?signin=1" target="_blank" rel="noreferrer" className="underline">Sign in for built-in AI</a>}</div>
+        {savingToAccount&&<div role="status" className="fixed inset-0 z-50 bg-white/90 flex items-center justify-center p-6 text-center font-semibold">Saving to your account. Your original device copy is kept as a backup…</div>}
+        <div className="mb-4 text-sm flex flex-wrap gap-3 items-center print:hidden"><strong>{activeProject.storageMode==='local'?'On this device':'Cloud project'}</strong><span role="status" className={saveFailed?'text-red-700 font-bold':'text-slate-500'}>{saveMessage}</span>{saveFailed&&<><button className="underline" onClick={()=>persist(activeProject)}>Retry save</button><button className="underline" onClick={()=>downloadText(`${activeProject.name}.project-backup.json`,JSON.stringify({format:'medexam-project-backup',version:1,project:activeProject}))}>Download recovery backup</button></>}{localMode&&!isAuthenticated&&<a href="/?signin=1" target="_blank" rel="noreferrer" className="underline">Sign in for account sync and AI</a>}</div>
         {error&&<div role="alert" className="p-4 mb-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">{error}</div>}
         {activeProject.syncNotice&&<p role="status" className="p-3 mb-4 bg-amber-50 text-amber-900 rounded">{activeProject.syncNotice} <a className="underline" href="/?local=1">Open device projects</a></p>}
         {generationNotice&&<p role="status" className="p-3 mb-4 bg-blue-50 text-blue-800 rounded">{generationNotice}</p>}
         {otherTab&&<p role="alert" className="p-4 bg-amber-100 mb-4">This project is open in another tab. Continue there, or close it and reopen this project. This copy is read-only.</p>}
         {activeExam.status==='active'&&activeExam.endsAt&&<ExamTimer key={activeExam.attemptId} endsAt={activeExam.endsAt} answered={Object.keys(activeExam.userAnswers).length} total={activeExam.questions.length} onExpire={()=>{const latest=projectRef.current;if(latest&&!otherTabRef.current)updateActiveProject(submitProjectExam(latest),true);}}/>}
-        <fieldset disabled={loading||otherTab} className="min-w-0"><ProjectExamTools key={activeProject.id} project={activeProject} onUpdate={updateActiveProject} onStart={exam=>{try{updateActiveProject(beginProjectExam(activeProject,exam),true);setActiveTab('exam');}catch(e){setError((e as Error).message);}}} onError={setError} canUseAI={isAuthenticated}/></fieldset>
+        {activeProject.storageMode==='local'&&<section className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg print:hidden"><h2 className="font-semibold">Use this project across devices</h2><p className="text-sm my-2">Save the reference material, objectives, exams and your progress to your private account on Supabase. Then open the app on any device and sign in. This does not enable Gemini.</p>{isAuthenticated?<button disabled={savingToAccount||otherTab} className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50" onClick={handleSaveToAccount}>{savingToAccount?'Saving to account…':'Save to account'}</button>:<a className="inline-block px-4 py-2 rounded bg-blue-600 text-white" href={`/?signin=1&localProject=${encodeURIComponent(activeProject.id)}`}>Sign in to save to account</a>}</section>}
+        <fieldset disabled={loading||otherTab||savingToAccount} className="min-w-0"><ProjectExamTools key={activeProject.id} project={activeProject} onUpdate={updateActiveProject} onStart={exam=>{try{updateActiveProject(beginProjectExam(activeProject,exam),true);setActiveTab('exam');}catch(e){setError((e as Error).message);}}} onError={setError} canUseAI={isAuthenticated}/></fieldset>
         
         {activeTab === 'exam' && (
             <div className="flex items-center gap-2 mb-4 text-xs text-slate-500 justify-end print:hidden">
@@ -791,7 +816,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                             <h3 className="font-semibold text-slate-900">Learning Objectives (Global)</h3>
                         </div>
                         <FileUpload 
-                            allowOnlineProcessing={!otherTab && isAuthenticated && (activeProject.storageMode!=='local' || activeProject.allowOnlineAI===true)}
+                            allowOnlineProcessing={!otherTab && isAuthenticated && allowsOnlineAI(activeProject)}
                             id="lo-upload"
                             files={learningObjectivesFiles} 
                             onFilesChanged={handleLoFilesChange} 
@@ -821,7 +846,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                     <p className="text-xs text-slate-500 mb-4">{section.description}</p>
                                     
                                     <FileUpload 
-                            allowOnlineProcessing={!otherTab && isAuthenticated && (activeProject.storageMode!=='local' || activeProject.allowOnlineAI===true)}
+                            allowOnlineProcessing={!otherTab && isAuthenticated && allowsOnlineAI(activeProject)}
                                         id={`section-${section.id}`}
                                         files={section.files} 
                                         onFilesChanged={(files) => handleSectionFilesChange(section.id, files)}
@@ -1077,7 +1102,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                     isSubmitted={activeExam.status === 'completed'}
                     hideMetadata={activeExam.status!=='completed'}
                     interactionDisabled={otherTab}
-                    privatePractice={!activeProject.allowOnlineAI && activeProject.storageMode==='local'}
+                    privatePractice={!allowsOnlineAI(activeProject)}
                 />
                 ))}
                 

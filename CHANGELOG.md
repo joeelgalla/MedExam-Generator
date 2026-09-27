@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-27 - Save device projects to an account
+
+Added a sign-in continuation and Save to account action, plus confirmed cloud import for device-marked shared projects/backups. The copy retains full study state, uses a stable owner-scoped ID for retries and redirects only after cloud saving succeeds. The original stays available as recovery. Gemini opt-in remains independent of storage mode.
+
+Validation: 48 tests, typecheck and build passed. Browser verified the account-save explanation and sign-in continuation with the source project ID. Actual signed-in transfer awaits the owner session.
+
+
 ## 2026-09-27 - Reusable project exams and shared question-writing recipe
 
 Projects now hold optional structured objectives, original worked examples, question-writing instructions and saved exam banks. Import/file paste, built-in generation and the external-AI packet feed the same timed attempts, review and answered-only progress. Shared projects exclude personal state; private backups and standalone-history restore retain it. Legacy projects remain supported.
