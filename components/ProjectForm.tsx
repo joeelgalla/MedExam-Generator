@@ -5,7 +5,7 @@ import { Plus, X, PieChart, Hash, AlertTriangle, Save, FolderOpen } from 'lucide
 
 interface ProjectFormProps {
   initialData?: Project; // If provided, we are in "Edit Mode"
-  onSubmit: (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number) => void;
+  onSubmit: (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number, instructions?: string) => void;
   onCancel: () => void;
   isEditing?: boolean;
 }
@@ -13,6 +13,7 @@ interface ProjectFormProps {
 const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCancel, isEditing = false }) => {
   const [name, setName] = useState(initialData?.name || '');
   const [description, setDescription] = useState(initialData?.description || '');
+  const [instructions,setInstructions]=useState(initialData?.questionWritingInstructions || '');
   const [referenceTotal, setReferenceTotal] = useState<number>(initialData?.referenceTotalQuestions || 40);
   
   // Initialize sections. If editing, use existing. If new, start with one default.
@@ -56,7 +57,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCanc
       alert("Please enter a valid reference total number of questions.");
       return;
     }
-    onSubmit(name, description, sections, referenceTotal);
+    onSubmit(name, description, sections, referenceTotal, instructions);
   };
 
   return (
@@ -92,6 +93,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCanc
           </div>
         </div>
 
+        <label className="block text-sm font-medium">Question writing instructions<textarea aria-label="Question writing instructions" className="mt-2 w-full border border-slate-300 rounded-lg p-3 text-slate-900" rows={5} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder="Clinical level, question types, case length, distractor quality, source priorities and things to avoid"/><span className="block mt-1 text-xs text-slate-500">Used by built-in generation and the AI packet; travels with shared projects. {initialData?.styleExamples?.length || 0} worked style examples included.</span></label>
         {/* Blueprint Editor */}
         <div className="border-t border-slate-100 pt-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">

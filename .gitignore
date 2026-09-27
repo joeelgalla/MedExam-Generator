@@ -32,3 +32,6 @@ private-data/
 *.apkg
 .vercel/
 .generated/
+
+*.project-backup.json
+*-AI-packet.md

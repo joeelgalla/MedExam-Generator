@@ -6,10 +6,15 @@ import FileUpload from './components/FileUpload';
 import QuestionCard from './components/QuestionCard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ProjectList from './components/ProjectList';
+import ExamTimer from './components/ExamTimer';
+import ProjectExamTools from './components/ProjectExamTools';
+import {cachedProjects,cacheProject} from './services/localProjects';
+import {emptyExam,importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam,downloadText} from './services/projectWorkflow';
+import {questionSources,MAX_BUILTIN_QUESTIONS} from './services/generationPrompt';
 import ProjectForm from './components/ProjectForm'; // IMPORT PROJECT FORM
 import { generateExam, getQuestionSourceAnalysis, sendChatMessage } from './services/geminiService';
 import { saveProject, getAllProjects, deleteProject } from './services/storageService';
-import { supabase } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
 import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings, Target, Crosshair, Shuffle } from 'lucide-react'; // ADD SETTINGS ICON
 import { useReactToPrint } from 'react-to-print';
@@ -19,6 +24,13 @@ const BETA_INVITE_CODE = "medbeta";
 const FEEDBACK_EMAIL = "your-email@example.com"; 
 
 function App() {
+  const localMode = new URLSearchParams(window.location.search).get('local') === '1';
+  const [saveMessage,setSaveMessage]=useState('');
+  const [saveFailed,setSaveFailed]=useState(false);
+  const [otherTab,setOtherTab]=useState(false);
+  const otherTabRef=useRef(false);
+  const cloudTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
+  const projectRef=useRef<Project|null>(null);
   // --- Auth State ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -46,12 +58,14 @@ function App() {
   // --- UI State (Local to session) ---
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationNotice,setGenerationNotice]=useState('');
   const [activeTab, setActiveTab] = useState<'exam' | 'analytics'>('exam');
   const [isEditingProjectDetails, setIsEditingProjectDetails] = useState(false); // NEW STATE FOR EDIT MODAL
   
   // --- Initialization (Supabase Auth) ---
   useEffect(() => {
-    logEvent('session_start');
+    if(!localMode) logEvent('session_start');
+    if(!isSupabaseConfigured){setLoadingProjects(false);return;}
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
@@ -65,7 +79,7 @@ function App() {
             setIsAdmin(true);
         }
 
-        loadProjects(session.user.id);
+
       } else {
         setIsAuthenticated(false);
         setCurrentUser(null);
@@ -78,8 +92,24 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(()=>{ if(localMode) loadProjects('local'); else if(currentUserId) loadProjects(currentUserId); },[currentUserId]);
+  useEffect(()=>{projectRef.current=activeProject;},[activeProject]);
+  useEffect(()=>{
+    if(!activeProject?.id || !navigator.locks) return;
+    let released=false,release:()=>void=()=>{};
+    setOtherTab(false);otherTabRef.current=false;
+    navigator.locks.request(`medexam-project-${activeProject.id}`,{ifAvailable:true},async lock=>{
+      if(released)return;
+      if(!lock){setOtherTab(true);otherTabRef.current=true;return;}
+      await new Promise<void>(r=>{release=r;});
+    });
+    return()=>{released=true;release();};
+  },[activeProject?.id]);
+
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(!isSupabaseConfigured){setAuthError('Cloud sign-in is not configured on this copy. Choose On this device to use projects and imported exams.');return;}
     setAuthError(null);
     setAuthSuccess(null);
 
@@ -158,94 +188,48 @@ function App() {
 
   const loadProjects = async (userId: string) => {
     setLoadingProjects(true);
-    const loadedProjects = await getAllProjects(userId);
-    setProjects(loadedProjects);
-    setLoadingProjects(false);
-  };
-
-  const handleCreateProject = async (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number) => {
-    if (!currentUserId) return;
-    
-    logEvent('feature_used', { feature: 'create_project', referenceTotal });
-    const newProject: Project = {
-        id: crypto.randomUUID(),
-        userId: currentUserId,
-        name,
-        description,
-        lastModified: new Date().toISOString(),
-        referenceTotalQuestions: referenceTotal,
-        learningObjectivesFiles: [],
-        blueprint: blueprint,
-        examHistory: [],
-        activeExam: {
-            questions: [],
-            userAnswers: {},
-            flaggedQuestions: [],
-            status: 'active',
-            configOpen: true,
-            questionCount: 10,
-            difficulty: 'standard'
-        }
-    };
-    await saveProject(newProject);
-    setProjects(prev => [newProject, ...prev]);
-    setActiveProject(newProject);
-  };
-  
-  const handleImportProject = async (importedData: any) => {
-    if (!currentUserId) return;
-
     try {
-        // Validate basic structure
-        if (!importedData.name || !importedData.blueprint) {
-            alert("Invalid project file format.");
-            return;
-        }
-
-        const newProject: Project = {
-            ...importedData,
-            id: crypto.randomUUID(), // New ID to avoid conflicts
-            userId: currentUserId, // Assign to current user
-            lastModified: new Date().toISOString(),
-            name: `${importedData.name} (Imported)`, // Distinct name
-            // Reset exam state so user starts fresh
-            examHistory: [],
-            activeExam: {
-                questions: [],
-                userAnswers: {},
-                flaggedQuestions: [],
-                status: 'active',
-                configOpen: true,
-                questionCount: 10,
-                difficulty: 'standard'
-            }
-        };
-        
-        logEvent('feature_used', { feature: 'import_project' });
-        await saveProject(newProject);
-        setProjects(prev => [newProject, ...prev]);
-        setActiveProject(newProject);
-    } catch (e) {
-        console.error("Import failed", e);
-        alert("Failed to import project. The file may be corrupted.");
-    }
+      const loadedProjects=localMode?await cachedProjects('local'):await getAllProjects(userId);
+      setProjects(loadedProjects);
+      const notice=loadedProjects.find(p=>p.syncNotice)?.syncNotice;
+      if(notice){setSaveMessage(notice);setSaveFailed(false);}
+    } catch(err) {
+      setSaveMessage((err as Error).message);setSaveFailed(true);
+      try {setProjects((await cachedProjects(userId)).map(p=>({...p,syncPending:true})));} catch {setSaveMessage('Device storage is unavailable. Download a backup before leaving.');}
+    } finally {setLoadingProjects(false);}
   };
 
-  const handleDeleteProject = async (id: string) => {
-    await deleteProject(id);
-    setProjects(prev => prev.filter(p => p.id !== id));
-    if (activeProject?.id === id) setActiveProject(null);
+  const persist=async(p:Project)=>{
+    try{const saved=await saveProject(p);if(projectRef.current?.id===p.id && projectRef.current.lastModified===p.lastModified){projectRef.current=saved;setActiveProject(saved);setProjects(prev=>prev.map(x=>x.id===saved.id?saved:x));setSaveMessage(p.storageMode==='local'?'Saved on this device':'Saved to your account');setSaveFailed(false);}}
+    catch(e){setSaveMessage((e as Error).message);setSaveFailed(true);}
   };
-
-  const updateActiveProject = useCallback(async (updatedProject: Project) => {
-    setActiveProject(updatedProject);
-    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
-    await saveProject(updatedProject);
-  }, []);
+  const installProject=async(p:Project)=>{setError(null);setGenerationNotice('');setActiveTab('exam');projectRef.current=p;setProjects(prev=>[p,...prev]);setActiveProject(p);await persist(p);};
+  const handleCreateProject=async(name:string,description:string,blueprint:BlueprintSection[],referenceTotal:number,instructions='')=>{
+    if(!localMode&&!currentUserId)return;
+    await installProject({id:crypto.randomUUID(),userId:localMode?'local':currentUserId!,name,description,questionWritingInstructions:instructions,lastModified:new Date().toISOString(),referenceTotalQuestions:referenceTotal,learningObjectivesFiles:[],blueprint,examHistory:[],savedExams:[],storageMode:localMode?'local':'cloud',allowOnlineAI:!localMode,activeExam:emptyExam()});
+  };
+  const handleImportProject=async(data:unknown)=>{
+    try{await installProject(importProject(data,localMode?'local':currentUserId!,localMode?'local':'cloud'));}
+    catch(e){setSaveMessage((e as Error).message);setSaveFailed(true);}
+  };
+  const handleDeleteProject=async(id:string)=>{
+    const p=projects.find(x=>x.id===id);if(!p)return;
+    try{await deleteProject(p);setProjects(prev=>prev.filter(x=>x.id!==id));if(activeProject?.id===id)setActiveProject(null);}
+    catch(e){setSaveMessage((e as Error).message);setSaveFailed(true);}
+  };
+  const updateActiveProject=async(updatedProject:Project,flush=false)=>{
+    if(otherTabRef.current){setError('This project is open in another tab. Continue there, or close it and reopen this project.');return;}
+    const next={...updatedProject,lastModified:new Date(Math.max(Date.now(),Date.parse(updatedProject.lastModified)+1)).toISOString()};
+    projectRef.current=next;setActiveProject(next);setProjects(prev=>prev.map(p=>p.id===next.id?next:p));setSaveMessage('Saving…');
+    try {await cacheProject(next);} catch {setSaveMessage('Not saved: device storage failed. Download a private backup before leaving.');setSaveFailed(true);return;}
+    if(next.storageMode==='local'){setSaveMessage('Saved on this device');setSaveFailed(false);return;}
+    const timer=cloudTimers.current.get(next.id);if(timer)clearTimeout(timer);
+    if(flush){cloudTimers.current.delete(next.id);await persist(next);}else cloudTimers.current.set(next.id,setTimeout(()=>{cloudTimers.current.delete(next.id);persist(next);},1200));
+  };
 
   // --- Project Specific Handlers ---
 
-  const handleProjectDetailsUpdate = (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number) => {
+  const handleProjectDetailsUpdate = (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number, instructions = '') => {
       if (!activeProject) return;
       
       const updatedProject: Project = {
@@ -253,6 +237,7 @@ function App() {
           name,
           description,
           referenceTotalQuestions: referenceTotal,
+          questionWritingInstructions: instructions,
           blueprint
       };
       
@@ -307,83 +292,33 @@ function App() {
       });
   };
 
-  const handleGenerate = async () => {
-    if (!activeProject) return;
-    
-    // Validate that at least some content exists
-    const hasLOs = activeProject.learningObjectivesFiles.length > 0;
-    const hasContent = activeProject.blueprint.some(s => s.files.length > 0);
-
-    if (!hasLOs && !hasContent) {
-      setError("Please upload at least one file (Learning Objectives or Content in a Section).");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    // Resolve practice mode against current unlocks — a stale 'targeted' setting
-    // from a project that lost history shouldn't silently bias generation.
-    const requestedMode: PracticeMode = activeProject.activeExam.practiceMode || 'balanced';
-    const effectiveMode: PracticeMode = isModeUnlocked(requestedMode, activeProject.examHistory)
-      ? requestedMode
-      : highestUnlockedMode(activeProject.examHistory);
-
-    // Telemetry: Log generation attempt
-    logEvent('exam_generated', {
-        questionCount: activeProject.activeExam.questionCount,
-        difficulty: activeProject.activeExam.difficulty,
-        practiceMode: effectiveMode,
-        blueprintSections: activeProject.blueprint.length,
-        totalFiles: activeProject.learningObjectivesFiles.length + activeProject.blueprint.reduce((acc, s) => acc + s.files.length, 0)
-    });
-
-    const resetExamState = {
-        ...activeProject.activeExam,
-        practiceMode: effectiveMode,
-        questions: [],
-        userAnswers: {},
-        flaggedQuestions: [],
-        status: 'active' as const,
-        configOpen: false
-    };
-    setActiveProject({ ...activeProject, activeExam: resetExamState });
-
-    try {
-      const generatedQuestions = await generateExam(
-          activeProject.learningObjectivesFiles,
-          activeProject.blueprint,
-          activeProject.activeExam.questionCount,
-          activeProject.activeExam.difficulty || 'standard',
-          activeProject.referenceTotalQuestions || 40, // Pass the reference total
-          effectiveMode,
-          activeProject.examHistory,
-      );
-      
-      const newExamState = {
-          ...resetExamState,
-          questions: generatedQuestions
-      };
-      
-      updateActiveProject({ ...activeProject, activeExam: newExamState });
-      setActiveTab('exam');
-    } catch (err: any) {
-      setError(err.message || "Failed to generate exam. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+  const aiAllowed=()=>{
+    if(otherTabRef.current){setError('This project is open in another tab. Use that tab for AI requests.');return false;}
+    if(!isAuthenticated) {setError('Sign in to use built-in AI, or use Download AI packet and Import exam.');return false;}
+    if(activeProject?.storageMode==='local' && !activeProject.allowOnlineAI){setError('Enable sending selected materials to Gemini, or use the downloaded AI packet.');return false;}
+    return true;
   };
-
+  const handleGenerate=async()=>{
+    if(!activeProject || !aiAllowed())return;
+    if(activeProject.activeExam.questions.length && activeProject.activeExam.status==='active'){setError('Finish the current exam before generating another.');return;}
+    setLoading(true);setError(null);setGenerationNotice('');
+    const snapshot=activeProject;
+    try {
+      const questions=await generateExam(snapshot);
+      const examId=crypto.randomUUID();
+      const uniqueQuestions=questions.map((q,i)=>({...q,metadata:{...q.metadata,itemId:`${examId}-${i+1}`}}));
+      const exam=parseProjectExam({examId,title:`Practice set ${new Date().toLocaleDateString()}`,durationMinutes:snapshot.activeExam.durationMinutes || Math.ceil(questions.length*1.5),questions:uniqueQuestions},snapshot.registry);
+      await updateActiveProject(addExam(projectRef.current?.id===snapshot.id?projectRef.current:snapshot,exam),true);
+      setError('');setGenerationNotice(questions.length<snapshot.activeExam.questionCount?`Saved ${questions.length} valid questions of ${snapshot.activeExam.questionCount} requested. No retry was made. Choose Start when ready.`:`Saved ${questions.length} questions. Choose Start when ready.`);setActiveTab('exam');
+    } catch(e){setError((e as Error).message);} finally{setLoading(false);}
+  };
   const handleDeepDive = async (question: ExamQuestion): Promise<string> => {
       if (!activeProject) return "Error: No active project.";
 
       logEvent('feature_used', { feature: 'deep_dive_source_verify' });
 
-      // Aggregate all files
-      const allFiles = [
-          ...activeProject.learningObjectivesFiles,
-          ...activeProject.blueprint.flatMap(section => section.files)
-      ];
+      if(!aiAllowed()) return 'AI access is unavailable; your source files remain in this project.';
+      const allFiles = questionSources(activeProject,question);
 
       if (allFiles.length === 0) {
           return "No source files available to search.";
@@ -403,10 +338,8 @@ function App() {
 
       logEvent('feature_used', { feature: 'question_chat' });
 
-      const allFiles = [
-          ...activeProject.learningObjectivesFiles,
-          ...activeProject.blueprint.flatMap(section => section.files)
-      ];
+      if(!aiAllowed()) return 'AI access is unavailable; use the source documents or external AI packet.';
+      const allFiles = questionSources(activeProject,question);
 
       if (allFiles.length === 0) {
           return "No source files available for this project.";
@@ -416,7 +349,9 @@ function App() {
   };
 
   const handleOptionSelect = (questionId: number, option: string) => {
-    if (!activeProject) return;
+    const activeProject=projectRef.current;
+    if (!activeProject || activeProject.activeExam.status!=='active') return;
+    if(activeProject.activeExam.endsAt && Date.now()>=activeProject.activeExam.endsAt){updateActiveProject(submitProjectExam(activeProject),true);return;}
     const updatedAnswers = {
         ...activeProject.activeExam.userAnswers,
         [questionId]: option
@@ -428,6 +363,8 @@ function App() {
   };
 
   const handleToggleFlag = (questionId: number) => {
+      const activeProject=projectRef.current;
+      if(activeProject?.activeExam.endsAt && Date.now()>=activeProject.activeExam.endsAt){updateActiveProject(submitProjectExam(activeProject),true);return;}
       if (!activeProject) return;
       const currentFlags = activeProject.activeExam.flaggedQuestions || [];
       const isFlagged = currentFlags.includes(questionId);
@@ -466,31 +403,7 @@ function App() {
         }
     }
 
-    const finalScore = calculateScore();
-    const attempt: ExamAttempt = {
-        id: crypto.randomUUID(),
-        date: new Date().toISOString(),
-        score: finalScore,
-        totalQuestions: questions.length,
-        answers: { ...userAnswers },
-        questions: [ ...questions ],
-        flaggedQuestions: [ ...(activeProject.activeExam.flaggedQuestions || []) ],
-    };
-
-    // Telemetry: Log completion
-    logEvent('exam_completed', {
-        score: finalScore,
-        totalQuestions: questions.length,
-        percentage: Math.round((finalScore / questions.length) * 100),
-        difficulty: activeProject.activeExam.difficulty
-    });
-
-    updateActiveProject({
-        ...activeProject,
-        examHistory: [...activeProject.examHistory, attempt],
-        activeExam: { ...activeProject.activeExam, status: 'completed' }
-    });
-    
+    updateActiveProject(submitProjectExam(activeProject),true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -527,7 +440,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
   };
 
   // --- BETA AUTH VIEW ---
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !localMode) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="bg-white max-w-md w-full p-8 rounded-2xl shadow-xl border border-slate-100 transition-all">
@@ -545,6 +458,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                     <span className="block font-bold">Import & share exams</span>
                     <span className="mt-1 block text-sm">Take a question file from a friend. No account needed.</span>
                 </a>
+                <a href="/?local=1" className="mb-5 block rounded-lg border p-3 text-center font-semibold">On this device — projects without sign-in</a>
                 {/* Auth Tabs */}
                 <div className="flex mb-6 bg-slate-100 p-1 rounded-lg">
                     <button 
@@ -718,23 +632,24 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                             <div className="text-xs text-slate-500 flex items-center gap-1">
                                 Workspace: 
                                 <span className={`font-semibold ${isAdmin ? 'text-slate-800' : 'text-blue-600'}`}>
-                                    {currentUser} {isAdmin && '(Creator)'}
+                                    {currentUser || 'On this device'} {isAdmin && '(Creator)'}
                                 </span>
                             </div>
                         </div>
                     </div>
                     
                     <button 
-                        onClick={handleLogout}
+                        onClick={isAuthenticated?handleLogout:()=>{window.location.href='/';}}
                         className="text-sm font-medium text-slate-500 hover:text-red-600 flex items-center gap-1"
                     >
-                        <LogOut className="w-4 h-4" /> Logout
+                        <LogOut className="w-4 h-4" /> {isAuthenticated ? 'Logout' : 'Sign in'}
                     </button>
                 </div>
             </header>
+            <div className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap gap-3 text-sm"><strong>{localMode?'On this device':'Your cloud account'}</strong><a className="underline" href={localMode?'/?signin=1':'/?local=1'} target={localMode?'_blank':undefined} rel="noreferrer">{localMode?(isAuthenticated?'Open cloud projects':'Sign in for built-in AI'):'Open device projects'}</a><p role="status" className={saveFailed?'text-red-700':'text-slate-600'}>{saveMessage}</p></div>
             <ProjectList 
                 projects={projects} 
-                onSelectProject={setActiveProject}
+                onSelectProject={p=>{setError(null);setGenerationNotice('');setActiveTab('exam');projectRef.current=p;setActiveProject(p);if(p.syncPending){setSaveMessage('Device changes awaiting cloud sync…');persist(p);}else setSaveMessage(p.storageMode==='local'?'Loaded from this device':'Loaded from your account');}}
                 onCreateProject={handleCreateProject}
                 onDeleteProject={handleDeleteProject}
                 onImportProject={handleImportProject} // PASS THE IMPORT HANDLER
@@ -795,12 +710,14 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
             <nav className="flex items-center p-1 bg-slate-100 rounded-lg mr-2">
                 <button 
                     onClick={() => setActiveTab('exam')}
+                    aria-label="Exam"
                     className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'exam' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     <Layout className="w-4 h-4" /> <span className="hidden sm:inline">Exam</span>
                 </button>
                 <button 
                     onClick={() => setActiveTab('analytics')}
+                    aria-label="Progress"
                     className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'analytics' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     <BarChart2 className="w-4 h-4" /> <span className="hidden sm:inline">Progress</span>
@@ -825,11 +742,18 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
       )}
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow print:max-w-none print:p-0">
+        <div className="mb-4 text-sm flex flex-wrap gap-3 items-center print:hidden"><strong>{activeProject.storageMode==='local'?'On this device':'Cloud project'}</strong><span role="status" className={saveFailed?'text-red-700 font-bold':'text-slate-500'}>{saveMessage}</span>{saveFailed&&<><button className="underline" onClick={()=>persist(activeProject)}>Retry save</button><button className="underline" onClick={()=>downloadText(`${activeProject.name}.project-backup.json`,JSON.stringify({format:'medexam-project-backup',version:1,project:activeProject}))}>Download recovery backup</button></>}{localMode&&!isAuthenticated&&<a href="/?signin=1" target="_blank" rel="noreferrer" className="underline">Sign in for built-in AI</a>}</div>
+        {error&&<div role="alert" className="p-4 mb-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">{error}</div>}
+        {activeProject.syncNotice&&<p role="status" className="p-3 mb-4 bg-amber-50 text-amber-900 rounded">{activeProject.syncNotice} <a className="underline" href="/?local=1">Open device projects</a></p>}
+        {generationNotice&&<p role="status" className="p-3 mb-4 bg-blue-50 text-blue-800 rounded">{generationNotice}</p>}
+        {otherTab&&<p role="alert" className="p-4 bg-amber-100 mb-4">This project is open in another tab. Continue there, or close it and reopen this project. This copy is read-only.</p>}
+        {activeExam.status==='active'&&activeExam.endsAt&&<ExamTimer key={activeExam.attemptId} endsAt={activeExam.endsAt} answered={Object.keys(activeExam.userAnswers).length} total={activeExam.questions.length} onExpire={()=>{const latest=projectRef.current;if(latest&&!otherTabRef.current)updateActiveProject(submitProjectExam(latest),true);}}/>}
+        <fieldset disabled={loading||otherTab} className="min-w-0"><ProjectExamTools key={activeProject.id} project={activeProject} onUpdate={updateActiveProject} onStart={exam=>{try{updateActiveProject(beginProjectExam(activeProject,exam),true);setActiveTab('exam');}catch(e){setError((e as Error).message);}}} onError={setError} canUseAI={isAuthenticated}/></fieldset>
         
         {activeTab === 'exam' && (
             <div className="flex items-center gap-2 mb-4 text-xs text-slate-500 justify-end print:hidden">
                 <History className="w-3 h-3" />
-                <span>Auto-saved</span>
+                <span>{saveFailed ? 'Save needs attention' : saveMessage}</span>
             </div>
         )}
 
@@ -837,7 +761,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
         {activeTab === 'analytics' && (
             <div className="animate-fadeIn print:hidden">
                 <h2 className="text-2xl font-bold text-slate-900 mb-6">Performance Analytics: {activeProject.name}</h2>
-                <AnalyticsDashboard history={examHistory} onDeepDive={handleDeepDive} onChatSend={handleChatSend} />
+                <AnalyticsDashboard registry={activeProject.registry} history={examHistory} onDeepDive={handleDeepDive} onChatSend={handleChatSend} />
             </div>
         )}
 
@@ -867,6 +791,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                             <h3 className="font-semibold text-slate-900">Learning Objectives (Global)</h3>
                         </div>
                         <FileUpload 
+                            allowOnlineProcessing={!otherTab && isAuthenticated && (activeProject.storageMode!=='local' || activeProject.allowOnlineAI===true)}
                             id="lo-upload"
                             files={learningObjectivesFiles} 
                             onFilesChanged={handleLoFilesChange} 
@@ -896,6 +821,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                     <p className="text-xs text-slate-500 mb-4">{section.description}</p>
                                     
                                     <FileUpload 
+                            allowOnlineProcessing={!otherTab && isAuthenticated && (activeProject.storageMode!=='local' || activeProject.allowOnlineAI===true)}
                                         id={`section-${section.id}`}
                                         files={section.files} 
                                         onFilesChanged={(files) => handleSectionFilesChange(section.id, files)}
@@ -941,7 +867,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                 <input
                                     type="range"
                                     min="5"
-                                    max="50"
+                                    max="60"
                                     step="1"
                                     value={activeExam.questionCount}
                                     onChange={(e) => handleQuestionCountChange(parseInt(e.target.value))}
@@ -1022,7 +948,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                         disabled={!u.unlocked}
                                         className={`${baseCls} ${stateCls}`}
                                         title={u.unlocked
-                                            ? 'Skips topics you have mastered. Maintenance questions cycle them back in periodically so you do not forget.'
+                                            ? 'Reduces topics with sustained strong evidence. Maintenance questions cycle them back in periodically so you do not forget.'
                                             : `Unlocks after ${u.required} answered questions (${u.remaining} to go).`}
                                     >
                                         <span className="flex items-center gap-1.5">
@@ -1030,7 +956,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                                         </span>
                                         <span className="text-[11px] font-normal leading-snug text-slate-400">
                                             {u.unlocked
-                                                ? 'Weak topics only — mastered ones cycle back as maintenance.'
+                                                ? 'Emphasizes weak or untested topics, with periodic review.'
                                                 : `Unlocks at ${u.required} questions (${u.remaining} to go).`}
                                         </span>
                                     </button>
@@ -1039,10 +965,12 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                         </div>
                     </div>
 
+                    <label className="block text-sm">Exam duration (minutes)<input aria-label="Exam duration (minutes)" disabled={activeExam.status==='active'&&activeExam.questions.length>0} type="number" min="1" max="240" className="ml-3 border rounded p-2 w-24" value={activeExam.durationMinutes || 30} onChange={e=>updateActiveProject({...activeProject,activeExam:{...activeExam,durationMinutes:Math.max(1,Math.min(240,Number(e.target.value)||1))}})}/></label>
+                    <p className="text-sm text-slate-600">Built-in Gemini creates up to 20 questions per set. For a 60-question mock, download the AI packet above and import its JSON. Generated questions are saved here; the timer starts only when you click Start.</p>
                     {/* Generate Button */}
                     <button
                         onClick={handleGenerate}
-                        disabled={loading}
+                        disabled={loading||otherTab||activeExam.questionCount>MAX_BUILTIN_QUESTIONS||(activeExam.status==='active'&&activeExam.questions.length>0)}
                         className={`w-full py-4 px-6 rounded-xl font-bold text-lg shadow-sm transition-all flex items-center justify-center space-x-2
                         ${loading
                             ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
@@ -1062,15 +990,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                         )}
                     </button>
 
-                    {error && (
-                        <div className="p-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 flex items-start gap-2">
-                            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <div className="font-bold">Generation Failed</div>
-                                <div>{error}</div>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
             )}
             </div>
@@ -1116,6 +1036,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                      {activeExam.status === 'active' && (
                          <button
                          onClick={handleFinishExam}
+                         disabled={otherTab}
                          className="flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm hover:shadow"
                          >
                              <CheckCheck className="w-4 h-4" /> Finish Exam
@@ -1144,21 +1065,24 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
             <div className="space-y-6 animate-slideUp print:space-y-8">
                 {activeExam.questions.map((q, index) => (
                 <QuestionCard 
-                    key={q.id || index} 
+                    key={`${activeExam.attemptId || activeExam.examId || ''}-${q.metadata.itemId || q.id || index}`}
                     question={q} 
                     index={index} 
                     selectedOption={activeExam.userAnswers[q.id] || null}
                     isFlagged={(activeExam.flaggedQuestions || []).includes(q.id)}
-                    onSelectOption={(opt) => handleOptionSelect(q.id, opt)}
-                    onToggleFlag={() => handleToggleFlag(q.id)}
+                    onSelectOption={(opt) => !otherTab && handleOptionSelect(q.id, opt)}
+                    onToggleFlag={() => !otherTab && handleToggleFlag(q.id)}
                     onDeepDive={handleDeepDive}
                     onChatSend={handleChatSend}
                     isSubmitted={activeExam.status === 'completed'}
+                    hideMetadata={activeExam.status!=='completed'}
+                    interactionDisabled={otherTab}
+                    privatePractice={!activeProject.allowOnlineAI && activeProject.storageMode==='local'}
                 />
                 ))}
                 
                 {/* Answer Key for Print */}
-                <div className="hidden print:block break-before-page">
+                {activeExam.status==='completed' && <div className="hidden print:block break-before-page">
                     <h2 className="text-2xl font-bold mb-6 border-b-2 border-black pb-2">Answer Key & Explanations</h2>
                     <div className="space-y-6">
                         {activeExam.questions.map((q, i) => (
@@ -1168,13 +1092,14 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                             </div>
                         ))}
                     </div>
-                </div>
+                </div>}
 
                 {/* Bottom Finish Button (if long exam) */}
                 {activeExam.questions.length > 3 && activeExam.status === 'active' && (
                     <div className="flex justify-center pt-8 pb-12 print:hidden">
                          <button
                          onClick={handleFinishExam}
+                         disabled={otherTab}
                          className="flex items-center gap-2 px-8 py-4 text-lg font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                          >
                              <CheckCheck className="w-5 h-5" /> Finish & Submit Exam

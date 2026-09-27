@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
+import { requireAIUser } from '../lib/server/aiAuth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (aiDisabled(process.env)) return res.status(503).json({ error: 'AI extraction is disabled on this preview.' });
@@ -8,12 +9,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!(await requireAIUser(req,res))) return;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'Server configuration error: API key not configured.' });
   }
 
   try {
+    if (JSON.stringify(req.body).length > 2000000) return res.status(413).json({error:'Selected material is too large. Choose fewer source files; no text was cut.'});
     const { base64Data, mimeType, type } = req.body;
 
     if (!base64Data || !mimeType) {

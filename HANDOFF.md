@@ -1,5 +1,11 @@
 # Handoff
 
+## 2026-09-27 - Project workflow release
+
+Joe requested implementation and finalization after Claude partner review. Branch `codex/project-workflow` extends existing projects rather than replacing the app. All curriculum, exams and review transcripts remain outside this public repo. README documents the complete workflow and current limits. Local imports work without login; cloud data belongs to the authenticated account. No schema migration.
+
+The production AI allowlist retains the three existing non-test project-owner IDs. The verified disposable tester account is excluded; no new account is enabled. The setting takes effect on the new deployment. Paid live-generation and private-course-upload approvals were asked separately and are still pending. Do not run a billable call or upload course data just because mocked tests passed. Read the private delivery receipt for deployment IDs and remaining user actions.
+
 ## 2026-09-27 - Finalization in progress
 
 The newly connected Vercel connector confirms the generator failure: retired model `gemini-3-pro-preview` returned 404 on 2026-09-26 at 22:59:45 UTC. Replacement default and mocked transport regression check are on `codex/fm-finalize`; 24 tests, typecheck and build pass. No database changes or paid API calls. Clinical exam files remain outside this public repository.

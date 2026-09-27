@@ -46,3 +46,14 @@ test('every API handler returns before model access on a preview deployment', as
     }
   } finally { if (original === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = original; }
 });
+
+test('an all-skipped submitted exam still exposes history and review without false accuracy',async()=>{
+ const bundle=await build({stdin:{contents:`
+  import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server';
+  import AnalyticsDashboard from './components/AnalyticsDashboard';
+  import {fixture} from './tests/fixtures';
+  export const html=renderToStaticMarkup(<AnalyticsDashboard history={[{id:'skipped',date:'2026-01-01',score:0,totalQuestions:3,answers:{},questions:fixture().questions}]} onDeepDive={async()=>''} onChatSend={async()=>''}/>);
+ `,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
+ const module={exports:{} as {html:string}};new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
+ assert.match(module.exports.html,/Review Questions/);assert.doesNotMatch(module.exports.html,/NaN|No Exams Yet/);
+});

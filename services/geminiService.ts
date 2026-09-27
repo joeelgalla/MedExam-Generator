@@ -1,12 +1,20 @@
 
 import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode, ChatMessage } from '../types';
-import { buildPracticeDirective, buildPracticeModeContext } from './practiceMode';
+import type { Project } from '../types';
+import { buildGenerationPrompt, MAX_BUILTIN_QUESTIONS } from './generationPrompt';
+import { validateQuestions } from './projectWorkflow';
+import { supabase } from '../lib/supabase';
+async function aiHeaders() {
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session) throw new Error('Sign in to use built-in AI, or download the AI packet and import the result.');
+  return {'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`};
+}
 
 // --- OCR (Image Text Extraction) ---
 export const extractTextFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
   const response = await fetch('/api/ocr', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await aiHeaders(),
     body: JSON.stringify({ base64Data, mimeType, type: 'image' }),
   });
 
@@ -21,7 +29,7 @@ export const extractTextFromImage = async (base64Data: string, mimeType: string)
 export const transcribeMedia = async (base64Data: string, mimeType: string): Promise<string> => {
   const response = await fetch('/api/ocr', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await aiHeaders(),
     body: JSON.stringify({ base64Data, mimeType, type: 'media' }),
   });
 
@@ -40,7 +48,7 @@ export const getQuestionSourceAnalysis = async (
   try {
     const response = await fetch('/api/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await aiHeaders(),
       body: JSON.stringify({ question, files }),
     });
 
@@ -68,7 +76,7 @@ export const sendChatMessage = async (
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await aiHeaders(),
       body: JSON.stringify({ question, files, history, userMessage }),
     });
 
@@ -83,125 +91,20 @@ export const sendChatMessage = async (
   }
 };
 
-// --- Exam Generation ---
-export const generateExam = async (
-  loFiles: UploadedFile[],
-  blueprint: BlueprintSection[],
-  questionCount: number = 10,
-  difficulty: DifficultyLevel = 'standard',
-  referenceTotalQuestions: number = 40,
-  practiceMode: PracticeMode = 'balanced',
-  history: ExamAttempt[] = [],
-): Promise<ExamQuestion[]> => {
-
-  // Prepare LO Context
-  let loContext = '';
-  if (loFiles.length > 0) {
-    loFiles.forEach(f => {
-      loContext += `\n--- START OF LEARNING OBJECTIVE FILE: ${f.name} ---\n${f.content}\n--- END OF LEARNING OBJECTIVE FILE: ${f.name} ---\n`;
-    });
-  } else {
-    loContext = 'No Learning Objectives provided.';
-  }
-
-  // Prepare Blueprint Context
-  let blueprintContext = '';
-  blueprint.forEach((section) => {
-    blueprintContext += `\n\n=== SECTION: ${section.title} ===\n`;
-    blueprintContext += `Reference Question Count (from original blueprint): ${section.questionCount} (based on a ${referenceTotalQuestions}-question exam)\n`;
-    blueprintContext += `Context/Description: ${section.description}\n`;
-
-    if (section.files.length > 0) {
-      section.files.forEach(f => {
-        blueprintContext += `\n--- FILE (${section.title}): ${f.name} ---\n${f.content}\n--- END FILE ---\n`;
-      });
-    } else {
-      blueprintContext += `(No files uploaded for this section)\n`;
-    }
-  });
-
-  // Difficulty Instructions
-  let difficultyInstruction = '';
-  if (difficulty === 'standard') {
-    difficultyInstruction = `
-    **DIFFICULTY: STANDARD**
-    - Questions should be straightforward clinical scenarios.
-    - Distractors should be plausible but clearly incorrect to a well-studied student.
-    - Focus on 'most likely diagnosis' and 'initial management'.
-    `;
-  } else if (difficulty === 'hard') {
-    difficultyInstruction = `
-    **DIFFICULTY: HARD**
-    - **Distractor Quality:** Distractors MUST be "homogeneous". e.g., if the answer is an antibiotic, all distractors must be antibiotics of the same class or used for similar conditions. NO "outlier" answers.
-    - **Vignette:** Include details that could plausibly point to a close competing diagnosis, requiring the student to rule it out carefully. Every detail must still be clinically relevant — do NOT add irrelevant red herrings.
-    - **Ambiguity:** Scenarios should require ruling out a very close differential diagnosis. Include medications, lab values, or comorbidities that add realistic complexity.
-    `;
-  } else if (difficulty === 'expert') {
-    difficultyInstruction = `
-    **DIFFICULTY: EXPERT / MASTER**
-    - **Best Next Step:** Focus heavily on "What is the BEST next step". Provide 3 options that are *correct* steps, but only ONE is the immediate priority.
-    - **Nuance:** Test specific contraindications, timeline-dependent decisions, or subtle side effects.
-    - **Misconceptions:** Specifically target common student misconceptions.
-    - **No Giveaways:** Ensure the correct answer is NOT the longest option or the only one with specific detail.
-    `;
-  }
-
-  // Build practice-mode directive (Focused/Targeted weighting + maintenance LOs).
-  // No-op string in Balanced mode or when there's not enough signal yet.
-  const practiceCtx = buildPracticeModeContext(history);
-  const practiceDirective = buildPracticeDirective(practiceMode, practiceCtx);
-
-  const prompt = `
-    Based on the attached files, generate a Practice Exam.
-
-    **SCALING INSTRUCTIONS:**
-    The user wants to generate exactly **${questionCount}** questions.
-    The provided Blueprint sections are based on a reference total of **${referenceTotalQuestions}** questions.
-    You must SCALE the number of questions for each section proportionally.
-
-    *Example:* If a section has "10-12" questions in a 40-question reference exam, and the user asks for 10 questions (1/4th the size), that section should have roughly 2-3 questions in this output.
-
-    **Constraint Checklist & Confidence Score:**
-    1. Generate exactly ${questionCount} questions? Yes.
-    2. Proportional Scaling? Yes.
-    3. Output strictly valid JSON? Yes.
-
-    ${difficultyInstruction}
-
-    **PART 1: Global Learning Objectives (LOs)**
-    Use these to determine *what* to test across all sections.
-    ${loContext}
-
-    **PART 2: Exam Blueprint & Content**
-    ${blueprintContext}
-    ${practiceDirective ? `\n${practiceDirective}\n` : ''}
-  `;
-
-  try {
-    const response = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, difficulty }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to generate exam.');
-    }
-
-    if (data.exam && Array.isArray(data.exam)) {
-      return data.exam;
-    }
-
-    throw new Error('Invalid response format from AI');
-  } catch (error) {
-    console.error('Gemini API Error:', error);
-
-    if (error instanceof SyntaxError) {
-      throw new Error('The AI response was incomplete. Try reducing question count or simplifying the input.');
-    }
-
-    throw error;
-  }
+// Both built-in generation and the external packet use the same project recipe.
+export const generateExam = async (project: Project): Promise<ExamQuestion[]> => {
+  if (project.activeExam.questionCount > MAX_BUILTIN_QUESTIONS) throw new Error('Built-in generation supports up to 20 questions per set. For a full mock, download the AI packet and import the returned exam.');
+  const prompt=buildGenerationPrompt(project);
+  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty})});
+  const data=await response.json();
+  if(!response.ok) throw new Error(data.error || 'Generation failed. Your existing exam is unchanged.');
+  const questions=validateQuestions(data.exam,project.registry);
+  // Preserve a valid shorter set without an automatic billable retry. The UI
+  // reports the actual count; malformed questions still reject the whole set.
+  if(questions.length>project.activeExam.questionCount) throw new Error(`The AI returned more questions than requested. The set was not installed.`);
+  const normalize=(q:ExamQuestion)=>`${q.vignette} ${q.leadIn}`.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const previous=new Set([...(project.savedExams || []).flatMap(e=>e.questions),...project.examHistory.flatMap(a=>a.questions),...(project.styleExamples || [])].map(normalize));
+  const seen=new Set<string>();
+  for(const q of questions){const key=normalize(q);if(previous.has(key)||seen.has(key))throw new Error('The AI repeated an existing or example question. The set was not installed; try another set.');seen.add(key);}
+  return questions;
 };

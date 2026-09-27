@@ -5,6 +5,7 @@ export interface UploadedFile {
   type: 'pdf' | 'docx' | 'txt' | 'xlsx' | 'pptx' | 'image';
   content: string;
   size: number;
+  topicIds?: string[];
 }
 
 export interface BlueprintSection {
@@ -94,6 +95,31 @@ export interface ActiveExamState {
   questionCount: number;
   difficulty: DifficultyLevel;
   practiceMode?: PracticeMode; // Optional for backward compat — default 'balanced'.
+  examId?: string;
+  attemptId?: string;
+  title?: string;
+  durationMinutes?: number;
+  startedAt?: number;
+  endsAt?: number;
+  selectedSectionIds?: string[];
+}
+
+export interface ObjectiveRegistry {
+  id: string;
+  objectives: Record<string, { topicId: string; text?: string }>;
+  topics: Record<string, { title: string; bucketId: string }>;
+  buckets: Record<string, string>;
+}
+
+export interface SavedExam {
+  format: 'medexam-exam';
+  version: 1;
+  examId: string;
+  title: string;
+  durationMinutes: number;
+  instructions: string;
+  registry?: ObjectiveRegistry;
+  questions: ExamQuestion[];
 }
 
 export interface Project {
@@ -101,6 +127,16 @@ export interface Project {
   userId: string; // ADDED: To segregate data by user
   name: string;
   description: string;
+  questionWritingInstructions?: string;
+  styleExamples?: ExamQuestion[];
+  registry?: ObjectiveRegistry;
+  savedExams?: SavedExam[];
+  archivedExams?: ActiveExamState[];
+  storageMode?: 'local' | 'cloud';
+  syncPending?: boolean;
+  syncNotice?: string;
+  cloudSyncedAt?: string;
+  allowOnlineAI?: boolean;
   lastModified: string;
   
   referenceTotalQuestions: number; // The denominator for the section counts (e.g. 40, 50, 100)

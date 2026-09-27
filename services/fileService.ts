@@ -7,8 +7,10 @@ declare const mammoth: any;
 declare const XLSX: any;
 declare const JSZip: any;
 
-export const readFileContent = async (file: File): Promise<UploadedFile> => {
+export const readFileContent = async (file: File,allowOnlineProcessing=false): Promise<UploadedFile> => {
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  const needsAI=['png','jpg','jpeg','webp','heic','mp3','wav','m4a','mp4','mpeg','mpga','webm'].includes(fileExtension || '');
+  if(needsAI&&!allowOnlineProcessing) throw new Error('Image/audio extraction uses Gemini. Sign in and enable online AI, or import a text document instead. Nothing was sent.');
   let content = '';
   let type: 'pdf' | 'docx' | 'txt' | 'xlsx' | 'pptx' | 'image' | 'audio' | 'video' = 'txt';
   let finalName = file.name;
@@ -88,7 +90,7 @@ const readPdf = async (file: File): Promise<string> => {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const strings = content.items.map((item: any) => item.str);
-    text += strings.join(' ') + '\n';
+    text += `\n--- PAGE ${i} ---\n` + strings.join(' ') + '\n';
   }
   return text;
 };

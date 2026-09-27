@@ -3,11 +3,12 @@ import React, { useState, useRef } from 'react';
 import { Project, BlueprintSection } from '../types';
 import { Plus, FolderOpen, Calendar, Trash2, FileText, ArrowRight, Share2, Upload, DownloadCloud } from 'lucide-react';
 import ProjectForm from './ProjectForm';
+import {projectShare,downloadText} from '../services/projectWorkflow';
 
 interface ProjectListProps {
   projects: Project[];
   onSelectProject: (project: Project) => void;
-  onCreateProject: (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number) => void;
+  onCreateProject: (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number, instructions?: string) => void;
   onDeleteProject: (id: string) => void;
   onImportProject: (data: any) => void;
 }
@@ -16,20 +17,14 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
   const [isCreating, setIsCreating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const handleCreate = (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number) => {
-    onCreateProject(name, description, blueprint, referenceTotal);
+  const handleCreate = (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number, instructions?: string) => {
+    onCreateProject(name, description, blueprint, referenceTotal, instructions);
     setIsCreating(false);
   };
 
   const handleExport = (e: React.MouseEvent, project: Project) => {
     e.stopPropagation();
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(project));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${project.name.replace(/\s+/g, '_')}_Project.medexam`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    downloadText(`${project.name}.medexam`,JSON.stringify(projectShare(project)));
   };
 
   const handleImportClick = () => {
@@ -40,6 +35,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if(file.size>20*1024*1024){alert('Choose a project under 20 MB.');return;}
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -56,7 +52,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
       <a href="/practice.html" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-5 text-blue-900 hover:bg-blue-100">
-        <div><h2 className="text-lg font-bold">Import & share exams</h2><p className="mt-1 text-sm">Have a question file? Take a timed exam or share it with a friend. Each person keeps their own results.</p></div>
+        <div><h2 className="text-lg font-bold">Quick exam player</h2><p className="mt-1 text-sm">For standalone files. To keep all exams in one study history, open a project and use Import exam there.</p></div>
         <ArrowRight className="h-5 w-5 shrink-0" />
       </a>
       <div className="flex justify-between items-end mb-8">

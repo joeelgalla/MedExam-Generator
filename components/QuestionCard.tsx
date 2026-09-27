@@ -15,6 +15,7 @@ interface QuestionCardProps {
   onChatSend: (question: ExamQuestion, history: ChatMessage[], userMessage: string) => Promise<string>;
   isSubmitted: boolean;
   privatePractice?: boolean;
+  hideMetadata?: boolean;
   interactionDisabled?: boolean;
 }
 
@@ -29,6 +30,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   onChatSend,
   isSubmitted,
   privatePractice = false,
+  hideMetadata = privatePractice,
   interactionDisabled = false
 }) => {
   // Highlight State (Local, pre-submit marker)
@@ -94,8 +96,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Header Metadata */}
       <div className={`px-6 py-3 border-b flex flex-wrap gap-3 items-center text-xs text-slate-600 print:bg-transparent print:border-b print:border-gray-300 ${isFlagged ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
         <span className="font-bold text-slate-900 text-sm">Q{index + 1}</span>
-        {!privatePractice && <><div className="flex items-center gap-1 print:hidden">
-          <BookOpen className="w-3 h-3" /> Week {question.metadata.week}
+        {!hideMetadata && <><div className="flex items-center gap-1 print:hidden">
+          <BookOpen className="w-3 h-3" /> {question.metadata.week ? `Week ${question.metadata.week}` : question.metadata.cluster}
         </div>
         <div className="flex items-center gap-1 print:hidden">
           <BrainCircuit className="w-3 h-3" /> Level {question.metadata.cognitiveLevel}
@@ -114,7 +116,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
             <RefreshCw className="w-3 h-3" /> Maintenance
           </span>
         )}</>}
-        {privatePractice && question.metadata.caseId && <span>Shared case</span>}
+        {hideMetadata && question.metadata.caseId && <span>Shared case</span>}
         
         {/* Flag Button */}
         {!isSubmitted && (
@@ -196,6 +198,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                     </p>
                     <div className="mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
                         <span>LOs Tested: {question.metadata.losTested.join(', ')}</span>
+                        {question.metadata.objectiveIds?.length && <p className="mt-1">Objective IDs: {question.metadata.objectiveIds.join(', ')}</p>}
+                        {question.metadata.sources?.map((s,i)=><p className="mt-1" key={i}>{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.title}</a>:s.title}{s.page?` · p. ${s.page}`:''}</p>)}
                     </div>
 
                     {!privatePractice && <div className="mt-3">

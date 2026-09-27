@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
+import { requireAIUser } from '../lib/server/aiAuth.js';
 
 // Per-question tutor chat. Stateless: client sends full history each turn.
 // The stable prefix (source files + question context) lives in systemInstruction
@@ -33,10 +34,10 @@ function buildSystemInstruction(
 
   let fileContext = '';
   if (primary) {
-    fileContext += `\n--- PRIMARY SOURCE (model-attributed): ${primary.name} ---\n${(primary.content || '').slice(0, 300000)}\n--- END PRIMARY SOURCE ---\n`;
+    fileContext += `\n--- PRIMARY SOURCE (model-attributed): ${primary.name} ---\n${(primary.content || '')}\n--- END PRIMARY SOURCE ---\n`;
   }
   others.forEach((f, index) => {
-    fileContext += `\n--- FILE (ID ${index}): ${f.name} ---\n${(f.content || '').slice(0, 300000)}\n--- END FILE ---\n`;
+    fileContext += `\n--- FILE (ID ${index}): ${f.name} ---\n${(f.content || '')}\n--- END FILE ---\n`;
   });
 
   const losList: string[] = Array.isArray(question?.metadata?.losTested)
@@ -67,12 +68,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!(await requireAIUser(req,res))) return;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'Server configuration error: API key not configured.' });
   }
 
   try {
+    if (JSON.stringify(req.body).length > 2000000) return res.status(413).json({error:'Selected material is too large. Choose fewer source files; no text was cut.'});
     const { question, files, history, userMessage } = req.body as {
       question: any;
       files: Array<{ name: string; content?: string }>;
