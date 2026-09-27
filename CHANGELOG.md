@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-27 - Explain zero model quota accurately
+
+A production generation attempt returned zero free-tier Pro quota. The app now directs the owner to Gemini API billing instead of presenting that condition as a temporary rate limit. Existing saved exams remain available.
+
+Validation: 51 tests, typecheck, build and diff checks pass. A stubbed upstream 429 verifies the installed SDK makes exactly one request on each of the four paid routes; ordinary throttling remains distinct from zero model quota. No provider retry or model downgrade.
+
 ## 2026-09-27 - Enforce generated objective tags and tolerate malformed citation hints
 
 Registry-backed generation now requires objectiveIds, topicId and bucketId in Gemini's response schema. Optional malformed generated citations are discarded without relaxing question, answer-key, objective or imported-file validation. Generated question numbers and app-owned item IDs are normalized; linked-case labels map without collisions. Server logs record token counts and model only.

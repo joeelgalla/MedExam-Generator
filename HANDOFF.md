@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-09-27 - Live generation blocked by provider billing
+
+One authorized production browser generation reached Google and returned 429 with free-tier Pro quota limit 0. AI Studio showed the linked billing account as inactive/unsupported; Cloud billing appeared paid, and AI Studio billing setup returned a system error. No new exam was generated. The owner must resolve provider billing before a successful end-to-end generation can be claimed. Do not repeatedly test a known zero quota. Source-sharing permission is settled and the project remains enabled; this is not an app consent gate.
+
 ## 2026-09-27 - Generation readiness audit
 
 Claude partner reviewed the complete generation/import/account/history loop and found no reproducible data-loss defect. Addressed missing required registry fields in the Gemini response schema and malformed optional citation failures; added content-free token-usage logging. Joe approved sending relevant project sources to Gemini and the live generation test. The final private receipt owns the live result; mocked tests alone are not end-to-end proof. Cloud save and readback were already verified interactively.
