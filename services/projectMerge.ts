@@ -1,4 +1,4 @@
-import type {Project} from '../types.ts';
+import type {Project,SavedExam} from '../types.ts';
 // Order-insensitive equality for imported JSON objects; array order remains meaningful.
 export const canonical = (v:unknown):string => JSON.stringify(sort(v));
 function sort(v:any):any {return Array.isArray(v)?v.map(sort):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>[k,sort(v[k])])):v;}
@@ -7,10 +7,22 @@ function union<T>(remote:T[],local:T[],key:(x:T)=>string,label:string):T[] {
  for(const item of local){const old=rows.get(key(item));if(old&&canonical(old)!==canonical(item))throw new Error(`Conflicting ${label} ${key(item)}. Both copies are preserved. Download your device backup, then reload to open separate recovery and cloud copies.`);rows.set(key(item),item);}
  return [...rows.values()];
 }
+function mergeBanks(remote:SavedExam[],local:SavedExam[]):SavedExam[] {
+ const rows=new Map(remote.map(x=>[x.examId,x]));
+ for(const item of local) {
+  const old=rows.get(item.examId);
+  if(old && (old.contentRevision || 1)!==(item.contentRevision || 1)) {
+   if((item.contentRevision || 1)>(old.contentRevision || 1))rows.set(item.examId,item);
+  } else if(old) {
+   union([old],[item],x=>x.examId,'exam');
+  } else rows.set(item.examId,item);
+ }
+ return [...rows.values()];
+}
 export function mergeProjectCopies(local:Project,remote:Project,baseline?:Project):Project {
  if(local.id!==remote.id || local.userId!==remote.userId)throw new Error('Project ownership mismatch.');
  const examHistory=union(remote.examHistory || [],local.examHistory || [],x=>x.id,'attempt');
- const savedExams=union(remote.savedExams || [],local.savedExams || [],x=>x.examId,'exam');
+ const savedExams=mergeBanks(remote.savedExams || [],local.savedExams || []);
  const archivedExams=union(remote.archivedExams || [],local.archivedExams || [],x=>x.attemptId || canonical(x),'unfinished exam');
  const latest=local.lastModified>=remote.lastModified?local:remote;
  const a=local.activeExam,b=remote.activeExam;
