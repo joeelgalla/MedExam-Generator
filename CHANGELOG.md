@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-27 - Feedback typing and safe exam revisions
+
+Fixed the feedback dialog losing focus after each typed character by giving it a stable component identity. Drafts survive closing/reopening; Copy feedback works without an email application, and Open email draft no longer points at a placeholder recipient or clears the text before delivery.
+
+Added optional contentRevision to saved banks/imports/shares. Higher revisions win against stale device banks, while equal-version conflicts still stop and existing active/completed snapshots remain untouched. Shared writing rules reject gratuitous absolute qualifiers and answer-length cues. Private exam content remains outside this repository.
+
+Validation: 54 tests, typecheck and production build pass. Chrome continuous typing, newline entry, copy status and close/reopen passed. Private content validation confirms four 20-item sets, all 80 stable IDs retained, 14–15 buckets per set (maximum two per bucket), and linked cases kept together. Cloud data update follows deployment; read the private receipt for its final result.
+
 ## 2026-09-27 - Explain zero model quota accurately
 
 A production generation attempt returned zero free-tier Pro quota. The app now directs the owner to Gemini API billing instead of presenting that condition as a temporary rate limit. Existing saved exams remain available.

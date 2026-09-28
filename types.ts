@@ -115,6 +115,7 @@ export interface SavedExam {
   format: 'medexam-exam';
   version: 1;
   examId: string;
+  contentRevision?: number; // Higher revisions replace the bank, never saved attempt snapshots.
   title: string;
   durationMinutes: number;
   instructions: string;

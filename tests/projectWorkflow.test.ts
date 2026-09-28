@@ -133,3 +133,18 @@ test('backup restores old unmapped banks after the project adopts an objective r
  assert.equal(restored.savedExams?.[0].questions.length,3);
  assert.throws(()=>parseProjectExam(rows,p.registry),/registry/);
 });
+
+test('explicit exam revisions import and share without resetting progress or accepting a downgrade',()=>{
+ const p=project(),e=parseProjectExam(fixture());
+ const started=beginProjectExam(addExam(p,e),e,1000);
+ started.activeExam.userAnswers={1:'B'};
+ const revised=parseProjectExam({...e,contentRevision:2,title:'Exam 1',questions:e.questions.map(q=>({...q,options:{...q.options,A:'Another distractor'}}))});
+ const next=addExam(started,revised);
+ assert.equal(next.savedExams?.length,1);assert.equal(next.savedExams?.[0].contentRevision,2);
+ assert.deepEqual(next.activeExam,started.activeExam);assert.deepEqual(next.examHistory,started.examHistory);
+ assert.throws(()=>addExam(next,e),/newer revision/);
+ assert.equal(addExam(next,revised),next);
+ const friend=importProject(projectShare(next,true,true),'friend','local');
+ assert.equal(friend.savedExams?.[0].contentRevision,2);assert.equal(friend.examHistory.length,0);
+ for(const contentRevision of [0,-1,1.5,'2'])assert.throws(()=>parseProjectExam({...fixture(),contentRevision}),/Content revision/);
+});

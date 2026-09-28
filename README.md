@@ -46,3 +46,7 @@ Vercel environment variables:
 All four paid endpoints validate the bearer token with Supabase and enforce the allowlist before calling Gemini. Preview deployments disable AI. The shared question-writing rules are in `lib/examRules.ts`; `services/generationPrompt.ts` supplies the same project context to built-in generation and the external packet.
 
 This repository is public. Never commit private references, course objectives, recalls, imported exams, project files or backups. Use synthetic fixtures for tests. See `AGENTS.md` for implementation invariants and `CHANGELOG.md` for validation limits.
+
+### Revising an imported exam
+
+An intentional edit can reuse `examId` with a higher positive integer `contentRevision` (omitted means 1). Re-importing replaces that saved bank for future attempts. Completed reviews and unfinished attempts retain the questions originally shown. Older revisions cannot downgrade a bank; conflicting content with the same revision is rejected. Share exports retain the revision.

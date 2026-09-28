@@ -86,23 +86,26 @@ export function parseProjectExam(value: any, registry?: ObjectiveRegistry, allow
   const usedRegistry = registry || incomingRegistry;
   const examId = v.examId ? ident(v.examId,'Exam ID') : crypto.randomUUID();
   const questions = validateQuestions(v.questions || v.exam,usedRegistry,allowLegacy).map((q,i)=>({...q, id:i+1, metadata:{...q.metadata,itemId:q.metadata.itemId || `${examId}-${i+1}`}}));
-  return { format:'medexam-exam',version:1,examId,title:v.title ? str(v.title,'Exam title',250) : 'Imported exam',durationMinutes:v.durationMinutes === undefined ? Math.min(240,Math.max(1,Math.ceil(questions.length*1.5))) : int(v.durationMinutes,'Duration',1,240), instructions:v.instructions ? str(v.instructions,'Instructions',5000) : 'Choose the single best answer. Review explanations after submission.', ...(usedRegistry ? {registry:usedRegistry}:{}),questions };
+  return { format:'medexam-exam',version:1,examId,...(v.contentRevision===undefined?{}:{contentRevision:int(v.contentRevision,'Content revision',1,1000000)}),title:v.title ? str(v.title,'Exam title',250) : 'Imported exam',durationMinutes:v.durationMinutes === undefined ? Math.min(240,Math.max(1,Math.ceil(questions.length*1.5))) : int(v.durationMinutes,'Duration',1,240), instructions:v.instructions ? str(v.instructions,'Instructions',5000) : 'Choose the single best answer. Review explanations after submission.', ...(usedRegistry ? {registry:usedRegistry}:{}),questions };
 }
 const stem = (q: ExamQuestion) => `${q.vignette} ${q.leadIn}`.toLowerCase().replace(/[^a-z0-9]/g,'');
 export function addExam(project: Project, exam: SavedExam): Project {
   const existing = (project.savedExams || []).find(x=>x.examId === exam.examId);
   if (existing) {
-    if (canonical(existing.questions) !== canonical(exam.questions)) throw new Error('That exam ID already exists with different questions. Give the revised exam a new examId.');
-    return project;
+    if ((exam.contentRevision || 1) < (existing.contentRevision || 1)) throw new Error('A newer revision of this exam is already saved.');
+    if ((exam.contentRevision || 1) === (existing.contentRevision || 1)) {
+      if (canonical(existing) !== canonical(exam)) throw new Error('That exam ID already exists with different content. Increase contentRevision for an intentional revision, or use a new examId.');
+      return project;
+    }
   }
-  const prior = new Map((project.savedExams || []).flatMap(x=>x.questions).map(q=>[q.metadata.itemId,q]));
+  const prior = new Map((project.savedExams || []).filter(x=>x.examId!==exam.examId).flatMap(x=>x.questions).map(q=>[q.metadata.itemId,q]));
   for (const q of exam.questions) {
     const old = prior.get(q.metadata.itemId);
     if (old && (stem(old)!==stem(q) || old.correctAnswer!==q.correctAnswer || JSON.stringify(old.options)!==JSON.stringify(q.options))) throw new Error(`Item ID ${q.metadata.itemId} already belongs to a different question.`);
   }
   const blueprint=[...project.blueprint];
   if(!project.registry && exam.registry) for(const [id,title] of Object.entries(exam.registry.buckets)) if(!blueprint.some(s=>s.id===id)) blueprint.push({id,title,description:'Imported objective bucket',questionCount:String(exam.questions.filter(q=>q.metadata.bucketId===id).length || 1),files:[]});
-  return {...project, blueprint, registry:project.registry || exam.registry, savedExams:[...(project.savedExams || []),exam]};
+  return {...project, blueprint, registry:project.registry || exam.registry, savedExams:existing?(project.savedExams || []).map(x=>x.examId===exam.examId?exam:x):[...(project.savedExams || []),exam]};
 }
 export function beginProjectExam(project: Project, exam: SavedExam, now=Date.now()): Project {
   if (project.activeExam.questions.length && project.activeExam.status==='active') throw new Error('Finish the current exam before starting another.');

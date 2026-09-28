@@ -14,6 +14,7 @@ export interface PracticeQuestion extends ExamQuestion {
 }
 export interface PracticeExam {
   format: 'medexam-practice'; version: 1; examId: string; title: string;
+  contentRevision?: number;
   durationMinutes: number; instructions: string; registry: Registry;
   questions: PracticeQuestion[];
 }
@@ -120,6 +121,7 @@ export function parseExam(value: unknown): PracticeExam {
   unique(questions.map(q => q.id), 'Questions');
   unique(questions.map(q => q.metadata.itemId), 'Items');
   return { format: 'medexam-practice', version: 1, examId: id(v.examId, 'Exam ID'),
+    ...(v.contentRevision===undefined?{}:{contentRevision:integer(v.contentRevision,'Content revision',1,1000000)}),
     title: text(v.title, 'Exam title', 250), durationMinutes: integer(v.durationMinutes, 'Duration (minutes)', 1, 240),
     instructions: text(v.instructions, 'Instructions', 5000), registry, questions };
 }

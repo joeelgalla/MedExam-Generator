@@ -7,6 +7,7 @@ import QuestionCard from './components/QuestionCard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ProjectList from './components/ProjectList';
 import ExamTimer from './components/ExamTimer';
+import FeedbackModal from './components/FeedbackModal';
 import ProjectExamTools from './components/ProjectExamTools';
 import {cachedProjects,cacheProject} from './services/localProjects';
 import {emptyExam,importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam,downloadText,accountCopy,allowsOnlineAI} from './services/projectWorkflow';
@@ -16,12 +17,11 @@ import { generateExam, getQuestionSourceAnalysis, sendChatMessage } from './serv
 import { saveProject, getAllProjects, deleteProject } from './services/storageService';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
-import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, Send, X, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings, Target, Crosshair, Shuffle } from 'lucide-react'; // ADD SETTINGS ICON
+import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings, Target, Crosshair, Shuffle } from 'lucide-react'; // ADD SETTINGS ICON
 import { useReactToPrint } from 'react-to-print';
 
 // --- CONFIGURATION ---
 const BETA_INVITE_CODE = "medbeta"; 
-const FEEDBACK_EMAIL = "your-email@example.com"; 
 
 function App() {
   const localMode = new URLSearchParams(window.location.search).get('local') === '1';
@@ -177,15 +177,6 @@ function App() {
     setUsernameInput('');
     setEmailInput('');
     setAuthError(null);
-  };
-
-  const handleFeedbackSubmit = () => {
-      logEvent('feature_used', { feature: 'feedback_button' });
-      const subject = encodeURIComponent("MedExam Beta Feedback");
-      const body = encodeURIComponent(`User: ${currentUser}\n\n${feedbackText}`);
-      window.open(`mailto:${FEEDBACK_EMAIL}?subject=${subject}&body=${body}`);
-      setShowFeedback(false);
-      setFeedbackText('');
   };
 
   const loadProjects = async (userId: string) => {
@@ -607,39 +598,6 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
     );
   }
 
-  // --- FEEDBACK MODAL ---
-  const FeedbackModal = () => (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
-              <button 
-                onClick={() => setShowFeedback(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-              >
-                  <X className="w-5 h-5" />
-              </button>
-              <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-blue-600" /> Beta Feedback
-              </h3>
-              <p className="text-sm text-slate-500 mb-4">
-                  Found a bug or have an idea? Let us know! This will open your default email client.
-              </p>
-              <textarea 
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Describe your issue or suggestion..."
-                  className="w-full h-32 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none mb-4 text-sm"
-              />
-              <button 
-                  onClick={handleFeedbackSubmit}
-                  disabled={!feedbackText.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
-              >
-                  <Send className="w-4 h-4" /> Send Feedback
-              </button>
-          </div>
-      </div>
-  );
-
   // --- VIEW: PROJECT LIST ---
   if (!activeProject) {
       return (
@@ -688,7 +646,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                     <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 whitespace-nowrap font-medium text-sm">Feedback</span>
                 </button>
             )}
-            {showFeedback && <FeedbackModal />}
+            {showFeedback && <FeedbackModal text={feedbackText} onChange={setFeedbackText} onClose={()=>setShowFeedback(false)} user={currentUser}/>}
           </div>
       );
   }
@@ -1154,7 +1112,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
             <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 whitespace-nowrap font-medium text-sm">Feedback</span>
         </button>
       )}
-      {showFeedback && <FeedbackModal />}
+      {showFeedback && <FeedbackModal text={feedbackText} onChange={setFeedbackText} onClose={()=>setShowFeedback(false)} user={currentUser}/>}
     </div>
   );
 }

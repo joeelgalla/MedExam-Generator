@@ -1,5 +1,13 @@
 # Handoff
 
+## 2026-09-27 - Feedback typing and safe exam revisions
+
+Fixed the feedback dialog losing focus after each typed character by giving it a stable component identity. Drafts survive closing/reopening; Copy feedback works without an email application, and Open email draft no longer points at a placeholder recipient or clears the text before delivery.
+
+Added optional contentRevision to saved banks/imports/shares. Higher revisions win against stale device banks, while equal-version conflicts still stop and existing active/completed snapshots remain untouched. Shared writing rules reject gratuitous absolute qualifiers and answer-length cues. Private exam content remains outside this repository.
+
+Validation: 54 tests, typecheck and production build pass. Chrome continuous typing, newline entry, copy status and close/reopen passed. Private content validation confirms four 20-item sets, all 80 stable IDs retained, 14–15 buckets per set (maximum two per bucket), and linked cases kept together. Cloud data update follows deployment; read the private receipt for its final result.
+
 ## 2026-09-27 - Live generation blocked by provider billing
 
 One authorized production browser generation reached Google and returned 429 with free-tier Pro quota limit 0. AI Studio showed the linked billing account as inactive/unsupported; Cloud billing appeared paid, and AI Studio billing setup returned a system error. No new exam was generated. The owner must resolve provider billing before a successful end-to-end generation can be claimed. Do not repeatedly test a known zero quota. Source-sharing permission is settled and the project remains enabled; this is not an app consent gate.

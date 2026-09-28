@@ -14,6 +14,27 @@ test('a later edit on a stale device preserves exams and attempts from both devi
 test('conflicting same-ID attempts cannot silently overwrite each other',()=>{
  const a=complete(base(),'exam-a'),b=structuredClone(a);b.examHistory[0].answers={1:'A'};assert.throws(()=>mergeProjectCopies(b,a),/Conflicting attempt/);
 });
+test('bank revisions win in either sync direction without changing completed or running attempts',()=>{
+ const finished=complete(base(),'exam-a'),revised=structuredClone(finished);
+ revised.savedExams![0]={...revised.savedExams![0],title:'Exam 1',contentRevision:2,questions:revised.savedExams![0].questions.map(q=>({...q,options:{...q.options,A:'Revised distractor'}}))};
+ // An old device can have a newer settings timestamp. It still cannot downgrade the bank.
+ finished.lastModified='2026-09-27T23:00:00Z';revised.lastModified='2026-09-27T22:00:00Z';
+ for(const [a,b] of [[finished,revised],[revised,finished]]) {
+  const merged=mergeProjectCopies(a,b);
+  assert.equal(merged.savedExams![0].title,'Exam 1');
+  assert.deepEqual(merged.examHistory,finished.examHistory);
+  assert.deepEqual(merged.activeExam,finished.activeExam);
+ }
+ const running=beginProjectExam(base(),finished.savedExams![0],5000);
+ running.savedExams=finished.savedExams;
+ const newer=structuredClone(running);newer.savedExams=revised.savedExams;
+ assert.deepEqual(mergeProjectCopies(running,newer).activeExam,running.activeExam);
+});
+test('different content with the same bank revision still raises a conflict',()=>{
+ const a=complete(base(),'exam-a'),b=structuredClone(a);
+ b.savedExams![0].title='Unversioned conflicting edit';
+ assert.throws(()=>mergeProjectCopies(a,b),/Conflicting exam/);
+});
 test('an older active copy cannot revive a completed attempt',()=>{
  const p=base(),e=parseProjectExam(fixture());const active=beginProjectExam(addExam(p,e),e,1000),finished=submitProjectExam(active,2000);
  active.lastModified='2026-09-27T12:00:00Z';finished.lastModified='2026-09-27T11:00:00Z';
