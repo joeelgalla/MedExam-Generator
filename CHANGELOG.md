@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-09-29 - Live usability verification follow-up
+
+Production account check confirmed the same workspace for current and older projects, with existing progress retained. Removed the empty-library onboarding panel while a legacy attempt is in progress and suppressed a duplicate quota error message. Live synthetic generation reached Google and returned HTTP 429 with zero free-tier Pro quota; no successful generation is claimed. Saved exam/import/share workflows remain usable.
+
 ## 2026-09-29 - Consistent project workspace and recoverable tab handoff
 
 All projects now use the same Exams / Progress / Materials navigation. Generation is a primary action with a dedicated settings screen; importing is an optional adjacent action. Added newcomer instructions, a single sharing dialog with recipient steps, visible legacy histories/unfinished attempts, modal keyboard handling, and consistent controls. Project URLs survive reloads. No course data, bank revisions, cloud rows, schema or AI access list were changed.
