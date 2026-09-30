@@ -17,13 +17,13 @@ test('legacy cloud cards retain tutor controls; private cards hide hints and esc
   const module = { exports: {} as Record<string, string> };
   new Function('require', 'module', 'exports', bundle.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
   const { cloud, active, review } = module.exports;
-  assert.match(cloud, /Verify with Source Material/);
+  assert.match(cloud, /Find supporting passages/);
   assert.match(cloud, /Ask the AI Tutor/);
   assert.match(cloud, /Week/);
-  assert.doesNotMatch(active, /Synthetic cluster|Synthetic objective|A synthetic explanation|Verify with Source Material/);
+  assert.doesNotMatch(active, /Synthetic cluster|Synthetic objective|A synthetic explanation|Find supporting passages/);
   assert.match(review, /A synthetic explanation/);
   assert.match(review, /Unanswered/);
-  assert.doesNotMatch(review, /Verify with Source Material|AI Tutor/);
+  assert.doesNotMatch(review, /Find supporting passages|AI Tutor/);
   for (const html of [cloud, active, review]) {
     assert.doesNotMatch(html, /<img src=x/);
     assert.match(html, /&lt;img/);

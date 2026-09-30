@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from './fixtures.ts';
 import {importProject,projectShare,parseProjectExam,addExam,beginProjectExam,submitProjectExam,mergePracticeBackup,emptyExam,accountCopy,allowsOnlineAI,validateGeneratedQuestions} from '../services/projectWorkflow.ts';
-import {buildGenerationPrompt,externalPacket,questionSources} from '../services/generationPrompt.ts';
+import {buildGenerationPrompt,externalPacket,questionSources,MAX_CONTEXT_CHARS} from '../services/generationPrompt.ts';
 import {totalAnsweredQuestions,buildPracticeModeContext} from '../services/practiceMode.ts';
 import {emptyState,startAttempt,finishAttempt,recordAnswer,parseExam,backup} from '../services/privatePractice.ts';
 function project() {
@@ -84,7 +84,7 @@ test('legacy project and legacy question arrays keep working without an objectiv
 });
 test('source scope selects the actual topic file and does not silently truncate sources',()=>{
  const p=project();assert.equal(questionSources(p,parseProjectExam(fixture()).questions[0])[0].name,'Synthetic fixture');
- p.blueprint[0].files[0].content='x'.repeat(920000);assert.throws(()=>buildGenerationPrompt(p),/too large/);
+ p.blueprint[0].files[0].content='x'.repeat(MAX_CONTEXT_CHARS+20000);assert.throws(()=>buildGenerationPrompt(p),/too large/);
 });
 test('imported numbering normalizes safely and duplicate answer options are rejected',()=>{
  const f=fixture();f.questions.forEach((q,i)=>q.id=100+i);

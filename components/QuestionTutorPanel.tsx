@@ -41,6 +41,7 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
   // Deep Dive state
   const [isDeepDiving, setIsDeepDiving] = useState(false);
   const [deepDiveContent, setDeepDiveContent] = useState<string | null>(null);
+  const [deepDiveError, setDeepDiveError] = useState<string | null>(null);
 
   // Chat state (ephemeral — lost on reload; not persisted to Supabase).
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -101,12 +102,15 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
   }, [contentRef]);
 
   const handleDeepDiveClick = async () => {
-    if (deepDiveContent) return;
+    if (isDeepDiving) return;
+    setDeepDiveError(null);
     setIsDeepDiving(true);
     try {
-      setDeepDiveContent(await onDeepDive(question));
-    } catch {
-      setDeepDiveContent('**Error:** Could not verify source material at this time.');
+      const result = await onDeepDive(question);
+      if (/^Error:/i.test(result)) throw new Error(result.replace(/^Error:\s*/i, ''));
+      setDeepDiveContent(result);
+    } catch (error) {
+      setDeepDiveError(error instanceof Error ? error.message : 'Source analysis did not complete. Try again.');
     } finally {
       setIsDeepDiving(false);
     }
@@ -159,14 +163,21 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
   return (
     <>
       {/* Deep Dive trigger + states */}
-      {!deepDiveContent && !isDeepDiving && (
+      {!deepDiveContent && !isDeepDiving && !deepDiveError && (
         <div className="flex justify-end mb-2">
           <button
             onClick={handleDeepDiveClick}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm"
           >
-            <Search className="w-3 h-3" /> Verify with Source Material
+            <Search className="w-3 h-3" /> Find supporting passages
           </button>
+        </div>
+      )}
+
+      {deepDiveError && (
+        <div role="alert" className="mt-2 p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <p className="text-sm text-amber-950">{deepDiveError}</p>
+          <button onClick={handleDeepDiveClick} disabled={isDeepDiving} className="mt-2 text-sm font-semibold text-blue-700 underline disabled:opacity-50">Retry source analysis</button>
         </div>
       )}
 

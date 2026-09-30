@@ -91,6 +91,11 @@ const readPdf = async (file: File): Promise<string> => {
     const content = await page.getTextContent();
     const strings = content.items.map((item: any) => item.str);
     text += `\n--- PAGE ${i} ---\n` + strings.join(' ') + '\n';
+    const operators = await page.getOperatorList();
+    const imageOps = [pdfjsLib.OPS.paintImageXObject, pdfjsLib.OPS.paintInlineImageXObject, pdfjsLib.OPS.paintImageMaskXObject].filter(x => x !== undefined);
+    if (operators.fnArray.some((op: number) => imageOps.includes(op))) {
+      text += `[Extraction note: page ${i} contains embedded images. Text inside image tables/figures is not included in this text extraction. Inspect the original page before claiming evidence is absent or interpreting an incomplete table.]\n`;
+    }
   }
   return text;
 };

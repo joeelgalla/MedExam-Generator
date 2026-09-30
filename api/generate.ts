@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { MAX_CONTEXT_CHARS } from '../lib/requestLimits.js';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
 
@@ -21,8 +22,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { prompt, difficulty, hasObjectiveRegistry } = req.body;
 
-    if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 900000) {
-      return res.status(400).json({ error: 'Provide a prompt of 1–900,000 characters; select fewer sections if necessary.' });
+    if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > MAX_CONTEXT_CHARS) {
+      return res.status(400).json({ error: `Provide a prompt of 1–${MAX_CONTEXT_CHARS.toLocaleString('en-US')} characters; select fewer sections if necessary.` });
     }
 
     const ai = new GoogleGenAI({ apiKey });

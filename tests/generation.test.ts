@@ -70,7 +70,7 @@ test('upstream failures are never automatically retried and zero Pro quota names
       new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
       let status=0,body:any;const before=calls;
       const res={status(n:number){status=n;return this;},json(v:unknown){body=v;return this;}};
-      await module.exports.default({method:'POST',headers:{authorization:'Bearer synthetic'},body:{prompt:'Synthetic question',question:{vignette:'Synthetic',leadIn:'Test',options:{A:'One'},correctAnswer:'A'},files:[],history:[],userMessage:'Explain',base64Data:'AA==',mimeType:'image/png'}},res);
+      await module.exports.default({method:'POST',headers:{authorization:'Bearer synthetic'},body:{prompt:'Synthetic question',question:{vignette:'Synthetic',leadIn:'Test',options:{A:'One'},correctAnswer:'A'},files:[{name:'Synthetic',content:'Synthetic reference text'}],history:[],userMessage:'Explain',base64Data:'AA==',mimeType:'image/png'}},res);
       assert.equal(calls-before,1,route);
       if(route==='generate') {assert.equal(status,429,String(errors.at(-1)?.[1]));assert.match(body.error,/zero quota/);assert.match(body.error,/billing in Google AI Studio/);}
       else assert.ok(status>=400,route);
