@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-09-29 - Checked source quotations and recoverable lookup failures
+
+Source analysis now returns structured evidence, verifies each quote against the named uploaded file, and distinguishes partial support, conflicting evidence and no matching passage. A missing passage does not imply the original PDF lacks it. Gemini overload/quota failures preserve their status and have an explicit retry action; errors no longer become tutor evidence. The tutor treats the authored key as a claim to assess, not an authoritative source. PDF text imports identify embedded-image gaps. The shared prompt limit is now 1,000,000 characters to accommodate complete recovered sources without truncation.
+
+Validation: 59 tests, TypeScript and production build; a real Chrome component check exercised provider-error display then successful manual retry. Tests include invented quotations/filenames, absent evidence, provider 503, no automatic retries, PDF-image warnings and preservation of existing private/cloud workflows. Clinical source repairs are private and are not committed here.
+
+## 2026-09-29 - Laboratory context and clinical question-writing checks
+
+Updated shared built-in and external-packet instructions to require sourced laboratory reference intervals, distinguish those from clinical thresholds, include numerical interpretation, and review distractor plausibility and explanation consistency. Clarified that a stable patient does not automatically need another test when treatment is already indicated. Clinical banks and source material remain outside this public repository.
+
+Validation: 54 automated tests, typecheck, production build and diff checks pass. These are software checks, not clinical calibration. Private item revisions have a separate clinical audit and preserve attempt snapshots.
+
 ## 2026-09-27 - Feedback typing and safe exam revisions
 
 Fixed the feedback dialog losing focus after each typed character by giving it a stable component identity. Drafts survive closing/reopening; Copy feedback works without an email application, and Open email draft no longer points at a placeholder recipient or clears the text before delivery.

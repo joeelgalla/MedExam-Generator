@@ -54,12 +54,12 @@ export const getQuestionSourceAnalysis = async (
 
     const data = await response.json();
     if (!response.ok) {
-      return `Error: ${data.error || 'Unable to analyze sources.'}`;
+      throw new Error(data.error || 'Source analysis did not complete. Try again.');
     }
     return data.text;
   } catch (error) {
     console.error('Deep Dive Error:', error);
-    return 'Error: Unable to analyze sources. The context may be too large or the service is busy.';
+    throw error instanceof Error ? error : new Error('Unable to reach source analysis. Check your connection and try again.');
   }
 };
 

@@ -1,8 +1,9 @@
 import type { Project, ExamQuestion } from '../types.ts';
 import { SYSTEM_INSTRUCTION } from '../lib/examRules.ts';
+import { MAX_CONTEXT_CHARS } from '../lib/requestLimits.ts';
+export { MAX_CONTEXT_CHARS } from '../lib/requestLimits.ts';
 import { buildPracticeDirective, buildPracticeModeContext, isModeUnlocked } from './practiceMode.ts';
 export const MAX_BUILTIN_QUESTIONS = 20;
-export const MAX_CONTEXT_CHARS = 900000;
 export function selectedSections(project: Project) {
   const ids=project.activeExam.selectedSectionIds;
   return ids ? project.blueprint.filter(s=>ids.includes(s.id)) : project.blueprint;
