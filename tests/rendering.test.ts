@@ -57,3 +57,25 @@ test('an all-skipped submitted exam still exposes history and review without fal
  const module={exports:{} as {html:string}};new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
  assert.match(module.exports.html,/Review Questions/);assert.doesNotMatch(module.exports.html,/NaN|No Exams Yet/);
 });
+
+
+test('legacy, new and bank projects expose the same generation and import paths while keeping old attempts visible',async()=>{
+ const bundle=await build({stdin:{contents:`
+  import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server';
+  import ProjectExamTools from './components/ProjectExamTools';
+  import {importProject,emptyExam,parseProjectExam} from './services/projectWorkflow';
+  import {fixture} from './tests/fixtures';
+  const p=importProject({name:'Synthetic legacy',blueprint:[],referenceTotalQuestions:40,learningObjectivesFiles:[]},'local','local');
+  const props={onUpdate:()=>{},onStart:()=>{},onError:()=>{},onGenerate:()=>{},onResume:()=>{},onMaterials:()=>{},onProgress:()=>{},onActionConsumed:()=>{},disabled:false};
+  export const fresh=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
+  p.examHistory=[{id:'previous',date:'2026-01-01',score:1,totalQuestions:3,answers:{1:'B'},questions:fixture().questions}];
+  p.activeExam={...emptyExam(),questions:fixture().questions,userAnswers:{1:'B'},status:'active'};
+  export const legacy=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
+  p.savedExams=[parseProjectExam(fixture())];
+  export const bank=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
+ `,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
+ const module={exports:{} as Record<string,string>};new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
+ for(const html of Object.values(module.exports)){assert.match(html,/Generate an exam/);assert.match(html,/Import an exam/);assert.match(html,/Share project/);}
+ assert.match(module.exports.legacy,/Previous attempts/);assert.match(module.exports.legacy,/Continue exam/);assert.doesNotMatch(module.exports.legacy,/Your next exam starts here/);
+ assert.match(module.exports.fresh,/Your next exam starts here/);
+});

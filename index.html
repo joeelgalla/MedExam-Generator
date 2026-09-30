@@ -16,7 +16,22 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
       }
+      button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+      .action-primary:disabled,.action-secondary:disabled,.action-quiet:disabled,fieldset:disabled .action-primary,fieldset:disabled .action-secondary { opacity: .45 !important; cursor: not-allowed !important; box-shadow: none !important; transform: none !important; }
+      button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+      .action-primary,.action-secondary,.action-quiet { display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:44px;padding:.65rem 1rem;border-radius:.65rem;font-size:.875rem;line-height:1.4;font-weight:600;transition:background-color .15s; }
+      .action-primary { background:#2563eb;color:white;border:1px solid #2563eb; }
+      .action-primary:hover:not(:disabled) { background:#1d4ed8; }
+      .action-secondary { background:white;color:#334155;border:1px solid #cbd5e1; }
+      .action-secondary:hover:not(:disabled) { background:#f8fafc; }
+      .action-quiet { color:#475569;padding-left:.25rem;padding-right:.25rem;font-weight:500; }
+      .action-quiet:hover:not(:disabled) { color:#1d4ed8; }
+      .workspace-dialog { width:min(600px,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);margin:auto;overflow-y:auto; }
+      .workspace-dialog::backdrop { background:rgb(15 23 42 / .45);backdrop-filter:blur(3px); }
     </style>
   <script type="importmap">
 {

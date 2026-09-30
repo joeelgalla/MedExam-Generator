@@ -14,7 +14,7 @@ export async function requireAIUser(req:VercelRequest,res:VercelResponse):Promis
     // Required owner-managed access restriction, not user-editable metadata.
     const allowed=(process.env.AI_ALLOWED_USER_IDS || '').split(',').map(s=>s.trim()).filter(Boolean);
     if(!allowed.length){res.status(503).json({error:'Built-in AI access is not configured. Use the AI packet and exam import.'});return false;}
-    if(!allowed.includes(user.id)){res.status(403).json({error:'This account is not enabled for built-in AI. Use the AI packet and exam import instead.'});return false;}
+    if(!allowed.includes(user.id)){res.status(403).json({error:'The app owner has not enabled built-in AI for this account. Ask them for access. You can still take, import and share exams, or use your own AI.'});return false;}
     return true;
   } catch {res.status(503).json({error:'Unable to verify your account. Try again shortly.'});return false;}
 }

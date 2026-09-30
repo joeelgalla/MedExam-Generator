@@ -10,6 +10,14 @@ async function aiHeaders() {
   return {'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`};
 }
 
+export async function getAIAvailability():Promise<{available:boolean;reason:string}> {
+  try {
+    const response=await fetch('/api/ai-status',{headers:await aiHeaders()});
+    const data=await response.json();
+    return {available:response.ok&&data.available===true,reason:response.ok?'':data.error||'AI availability could not be checked. Try again.'};
+  } catch {return {available:false,reason:'AI availability could not be checked. Check your connection and try again.'};}
+}
+
 // --- OCR (Image Text Extraction) ---
 export const extractTextFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
   const response = await fetch('/api/ocr', {
@@ -97,7 +105,7 @@ export const generateExam = async (project: Project): Promise<ExamQuestion[]> =>
   const prompt=buildGenerationPrompt(project);
   const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty,hasObjectiveRegistry:!!project.registry})});
   const data=await response.json();
-  if(!response.ok) throw new Error(data.error || 'Generation failed. Your existing exam is unchanged.');
+  if(!response.ok) throw Object.assign(new Error(data.error || 'Generation failed. Your existing exam is unchanged.'),{code:data.code,status:response.status});
   const questions=validateGeneratedQuestions(data.exam,project.registry);
   // Preserve a valid shorter set without an automatic billable retry. The UI
   // reports the actual count; malformed questions still reject the whole set.

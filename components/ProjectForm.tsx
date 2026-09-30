@@ -19,7 +19,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCanc
   // Initialize sections. If editing, use existing. If new, start with one default.
   const [sections, setSections] = useState<BlueprintSection[]>(
     initialData?.blueprint || [
-      { id: '1', title: 'Week 1 Content', description: 'Core material', questionCount: '10-12', files: [] }
+      { id: '1', title: 'General study material', description: 'Core material', questionCount: '40', files: [] }
     ]
   );
 
@@ -67,12 +67,14 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCanc
       </h3>
       
       <form onSubmit={handleSubmit} className="space-y-6">
+        {!isEditing&&<p className="text-sm text-slate-600">Name your subject or block. Next, add study materials or import an exam. You can organise topics later.</p>}
         {/* Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Project Name</label>
             <input
               type="text"
+              aria-label="Project name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Neurology Block"
@@ -93,15 +95,16 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCanc
           </div>
         </div>
 
-        <label className="block text-sm font-medium">Question writing instructions<textarea aria-label="Question writing instructions" className="mt-2 w-full border border-slate-300 rounded-lg p-3 text-slate-900" rows={5} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder="Clinical level, question types, case length, distractor quality, source priorities and things to avoid"/><span className="block mt-1 text-xs text-slate-500">Used by built-in generation and the AI packet; travels with shared projects. {initialData?.styleExamples?.length || 0} worked style examples included.</span></label>
+        <details open={isEditing||undefined}><summary className="cursor-pointer text-sm font-medium mb-4">Topics and question-writing instructions (optional)</summary>
+        <label className="block text-sm font-medium">Question writing instructions<textarea aria-label="Question writing instructions" className="mt-2 w-full border border-slate-300 rounded-lg p-3 text-slate-900" rows={5} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder="Clinical level, question types, case length, distractor quality, source priorities and things to avoid"/><span className="block mt-1 text-xs text-slate-500">Used by built-in generation and downloaded AI instructions; travels with shared projects. {initialData?.styleExamples?.length || 0} worked style examples included.</span></label>
         {/* Blueprint Editor */}
         <div className="border-t border-slate-100 pt-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
             <label className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <PieChart className="w-4 h-4" /> Exam Blueprint Structure
+              <PieChart className="w-4 h-4" /> Topics and coverage
             </label>
             <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-              <span className="text-sm text-blue-800 font-medium">Reference Total Questions:</span>
+              <span className="text-sm text-blue-800 font-medium">Coverage reference total:</span>
               <input 
                 type="number"
                 min="1"
@@ -184,6 +187,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ initialData, onSubmit, onCanc
           </button>
         </div>
 
+        </details>
         <div className="flex gap-3 pt-4 border-t border-slate-100">
           <button
             type="submit"

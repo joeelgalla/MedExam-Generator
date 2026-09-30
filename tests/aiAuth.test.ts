@@ -26,3 +26,19 @@ test('verified but unapproved accounts are rejected, and an empty allowlist fail
   }
  }finally{globalThis.fetch=fetch;for(const k of ['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','AI_ALLOWED_USER_IDS']){if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}}
 });
+
+test('AI availability verifies account access without calling Gemini or promising quota',async()=>{
+ const saved={...process.env},fetch=globalThis.fetch;let calls=0;
+ Object.assign(process.env,{VERCEL_ENV:'production',GEMINI_API_KEY:'synthetic',VITE_SUPABASE_URL:'https://synthetic.supabase.co',VITE_SUPABASE_ANON_KEY:'synthetic',AI_ALLOWED_USER_IDS:'owner'});delete process.env.DISABLE_AI;
+ globalThis.fetch=async(input)=>{assert.match(String(input),/auth\/v1\/user/);calls++;return new Response(JSON.stringify({id:'owner',is_anonymous:false}),{headers:{'content-type':'application/json'}});};
+ try{
+  const bundle=await build({entryPoints:['api/ai-status.ts'],bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
+  const module={exports:{} as any};new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
+  let status=0,body:any,cache='';const res={status(n:number){status=n;return this;},json(x:any){body=x;return this;},setHeader(k:string,v:string){if(k==='Cache-Control')cache=v;}};
+  await module.exports.default({method:'GET',headers:{authorization:'Bearer synthetic'}},res);
+  assert.equal(status,200);assert.deepEqual(body,{available:true});assert.equal(calls,1);assert.match(cache,/no-store/);
+  process.env.AI_ALLOWED_USER_IDS='someone-else';
+  await module.exports.default({method:'GET',headers:{authorization:'Bearer synthetic'}},res);
+  assert.equal(status,403);assert.match((body as any).error,/has not enabled/);
+ }finally{globalThis.fetch=fetch;for(const k of ['VERCEL_ENV','GEMINI_API_KEY','VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','AI_ALLOWED_USER_IDS','DISABLE_AI']){if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}}
+});

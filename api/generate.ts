@@ -3,6 +3,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { MAX_CONTEXT_CHARS } from '../lib/requestLimits.js';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
+import { generationError } from '../lib/server/generationError.js';
 
 import { SYSTEM_INSTRUCTION } from '../lib/examRules.js';
 
@@ -121,21 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error: any) {
     console.error('Generate API Error:', error);
 
-    const msg = error?.message || String(error);
-
-    if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
-      return res.status(403).json({ error: 'API access denied. The server API key may be invalid.' });
-    }
-    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-      if (msg.includes('free_tier') && /limit:\s*0\b/.test(msg)) {
-        return res.status(429).json({ error: 'The configured Google API project has zero quota for this Pro model. Check Gemini API billing in Google AI Studio; waiting alone will not fix a zero quota. Your saved exams are unchanged. You can still download an AI packet and import an exam from Codex or Claude.' });
-      }
-      return res.status(429).json({ error: 'Rate limit exceeded. Please wait a moment and try again.' });
-    }
-    if (msg.includes('503') || msg.includes('UNAVAILABLE')) {
-      return res.status(503).json({ error: 'The AI model is temporarily overloaded. Please try again shortly.' });
-    }
-
-    return res.status(500).json({ error: 'Failed to generate exam. Please try again.' });
+    const failure=generationError(error?.message || String(error));
+    return res.status(failure.status).json({error:failure.error,code:failure.code});
   }
 }
