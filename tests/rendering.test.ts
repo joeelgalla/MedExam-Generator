@@ -68,6 +68,8 @@ test('legacy, new and bank projects expose the same generation and import paths 
   const p=importProject({name:'Synthetic legacy',blueprint:[],referenceTotalQuestions:40,learningObjectivesFiles:[]},'local','local');
   const props={onUpdate:()=>{},onStart:()=>{},onError:()=>{},onGenerate:()=>{},onResume:()=>{},onMaterials:()=>{},onProgress:()=>{},onActionConsumed:()=>{},disabled:false};
   export const fresh=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
+  p.activeExam={...emptyExam(),questions:fixture().questions,userAnswers:{1:'B'},status:'active'};
+  export const unfinished=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
   p.examHistory=[{id:'previous',date:'2026-01-01',score:1,totalQuestions:3,answers:{1:'B'},questions:fixture().questions}];
   p.activeExam={...emptyExam(),questions:fixture().questions,userAnswers:{1:'B'},status:'active'};
   export const legacy=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
@@ -76,6 +78,7 @@ test('legacy, new and bank projects expose the same generation and import paths 
  `,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
  const module={exports:{} as Record<string,string>};new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
  for(const html of Object.values(module.exports)){assert.match(html,/Generate an exam/);assert.match(html,/Import an exam/);assert.match(html,/Share project/);}
+ assert.doesNotMatch(module.exports.unfinished,/Your next exam starts here/);assert.match(module.exports.unfinished,/Continue exam/);
  assert.match(module.exports.legacy,/Previous attempts/);assert.match(module.exports.legacy,/Continue exam/);assert.doesNotMatch(module.exports.legacy,/Your next exam starts here/);
  assert.match(module.exports.fresh,/Your next exam starts here/);
 });
