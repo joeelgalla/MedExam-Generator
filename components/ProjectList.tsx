@@ -7,7 +7,7 @@ import {projectShare,downloadText} from '../services/projectWorkflow';
 
 interface ProjectListProps {
   projects: Project[];
-  onSelectProject: (project: Project) => void;
+  onSelectProject: (project: Project, action?:'share') => void;
   onCreateProject: (name: string, description: string, blueprint: BlueprintSection[], referenceTotal: number, instructions?: string) => void;
   onDeleteProject: (id: string) => void;
   onImportProject: (data: any) => void;
@@ -24,7 +24,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
 
   const handleExport = (e: React.MouseEvent, project: Project) => {
     e.stopPropagation();
-    downloadText(`${project.name}.medexam`,JSON.stringify(projectShare(project)));
+    onSelectProject(project,'share');
   };
 
   const handleImportClick = () => {
@@ -51,21 +51,19 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
-      <a href="/practice.html" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-5 text-blue-900 hover:bg-blue-100">
-        <div><h2 className="text-lg font-bold">Quick exam player</h2><p className="mt-1 text-sm">For standalone files. To keep all exams in one study history, open a project and use Import exam there.</p></div>
-        <ArrowRight className="h-5 w-5 shrink-0" />
-      </a>
-      <div className="flex justify-between items-end mb-8">
+      <div className="mb-8 rounded-2xl border border-blue-100 bg-white p-5 sm:p-7"><h2 className="text-xl font-semibold tracking-tight">Study materials in. Practice exams out.</h2><div className="grid sm:grid-cols-3 gap-5 mt-5 text-sm"><p><strong className="block text-slate-900 mb-1">1. Set up a project</strong><span className="text-slate-600">Add your objectives and notes, or import a project from a friend.</span></p><p><strong className="block text-slate-900 mb-1">2. Create your exam</strong><span className="text-slate-600">Generate questions here, or import an exam made elsewhere.</span></p><p><strong className="block text-slate-900 mb-1">3. Practise and improve</strong><span className="text-slate-600">Take a timed exam, review explanations and track your progress.</span></p></div></div>
+      {new URLSearchParams(window.location.search).get('import')==='project'&&<div role="status" className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6"><h3 className="font-semibold">Received a project from a friend?</h3><p className="text-slate-600 text-sm my-2">Choose Import project below and select their .medexam file. It becomes your own copy with fresh progress.</p><button className="action-primary" onClick={handleImportClick}>Choose shared project file</button></div>}
+      <div className="flex flex-wrap gap-4 justify-between items-end mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Your Projects</h2>
-          <p className="text-slate-500 mt-1">Manage your exam generation workspaces</p>
+          <h2 className="text-3xl font-semibold text-slate-900">My projects</h2>
+          <p className="text-slate-500 mt-1">Each project keeps its study materials, exams and progress together.</p>
         </div>
         <div className="flex gap-2">
             <button
                 onClick={handleImportClick}
                 className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium"
             >
-                <Upload className="w-5 h-5" /> Import
+                <Upload className="w-5 h-5" /> Import project
             </button>
             <input 
                 type="file" 
@@ -109,7 +107,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
                 onClick={handleImportClick}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium"
               >
-                <DownloadCloud className="w-5 h-5" /> Import
+                <DownloadCloud className="w-5 h-5" /> Import project
               </button>
           </div>
         </div>
@@ -128,26 +126,26 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
                   <div className="p-3 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
                     <FolderOpen className="w-6 h-6 text-blue-600" />
                   </div>
-                  <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200">
-                      Ref Total: {project.referenceTotalQuestions || 40}
+                  <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200">
+                      {(project.savedExams||[]).length} exams
                   </span>
                 </div>
                 
-                <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="text-xl font-semibold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
                   {project.name}
                 </h3>
                 <p className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[1.5rem]">
-                  {project.description || "No description provided."}
+                  {project.description || "Open to generate, import or take an exam."}
                 </p>
 
                 {/* Blueprint Badges */}
                 <div className="flex flex-wrap gap-2 mb-6">
                     {project.blueprint.slice(0, 3).map(section => (
-                        <span key={section.id} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
-                            {section.title} ({section.questionCount})
+                        <span key={section.id} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                            {section.title}{section.questionCount?` (${section.questionCount})`:''}
                         </span>
                     ))}
-                    {project.blueprint.length > 3 && <span className="text-[10px] text-slate-400">+{project.blueprint.length - 3} more</span>}
+                    {project.blueprint.length > 3 && <span className="text-xs text-slate-400">+{project.blueprint.length - 3} more</span>}
                 </div>
 
                 <div className="flex items-center gap-4 text-xs text-slate-400 mb-4">
@@ -159,23 +157,23 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
                   </div>
                    <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    <span>{new Date(project.lastModified).toLocaleDateString()}</span>
+                    <span>{Number.isFinite(Date.parse(project.lastModified))?new Date(project.lastModified).toLocaleDateString():'Saved project'}</span>
                   </div>
                 </div>
 
                  {/* Mini Progress Bar */}
-                 {project.examHistory.length > 0 && (
+                 {project.examHistory.some(a=>a.totalQuestions>0) && (
                     <div className="mb-2">
                         <div className="flex justify-between text-xs mb-1">
                             <span className="font-medium text-slate-600">Avg Score</span>
                             <span className="text-slate-500">
-                                {Math.round(project.examHistory.reduce((acc, curr) => acc + (curr.score/curr.totalQuestions), 0) / project.examHistory.length * 100)}%
+                                {Math.round(project.examHistory.filter(a=>a.totalQuestions>0).reduce((acc, curr) => acc + (curr.score/curr.totalQuestions), 0) / project.examHistory.filter(a=>a.totalQuestions>0).length * 100)}%
                             </span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-1.5">
                             <div 
                                 className="bg-green-500 h-1.5 rounded-full" 
-                                style={{ width: `${Math.round(project.examHistory.reduce((acc, curr) => acc + (curr.score/curr.totalQuestions), 0) / project.examHistory.length * 100)}%`}}
+                                style={{ width: `${Math.round(project.examHistory.filter(a=>a.totalQuestions>0).reduce((acc, curr) => acc + (curr.score/curr.totalQuestions), 0) / project.examHistory.filter(a=>a.totalQuestions>0).length * 100)}%`}}
                             ></div>
                         </div>
                     </div>
@@ -194,7 +192,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
                     <button
                         onClick={(e) => handleExport(e, project)}
                         className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                        title="Share / Export Project"
+                        title="Share project"
                     >
                         <Share2 className="w-4 h-4" />
                     </button>
@@ -216,6 +214,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
           ))}
         </div>
       )}
+      <p className="text-sm text-slate-500 mt-8">Only have a standalone question file? <a className="text-blue-700 underline" href="/practice.html">Open the quick exam player</a>.</p>
     </div>
   );
 };

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-29 - Consistent project workspace and recoverable tab handoff
+
+All projects now use the same Exams / Progress / Materials navigation. Generation is a primary action with a dedicated settings screen; importing is an optional adjacent action. Added newcomer instructions, a single sharing dialog with recipient steps, visible legacy histories/unfinished attempts, modal keyboard handling, and consistent controls. Project URLs survive reloads. No course data, bank revisions, cloud rows, schema or AI access list were changed.
+
+Replaced one-shot tab exclusion with queued Web Locks and cooperative save-before-handoff; the original tab requeues, failed saves retain ownership, and expired attempts complete after takeover. The availability endpoint checks auth/configuration without using Gemini. Actual quota errors are distinguished and remembered for the session, with an explicit recheck. No model downgrade, plan change or automatic paid retry.
+
+Validation: 68 automated tests passed; TypeScript and production build passed. Real Chrome synthetic checks covered new/legacy/shared projects, import/start/answer/flag/reload/review, fresh-recipient sharing, two-tab handoff/close recovery, expiry, and 390px no-overflow layout. Existing Fable partner and Kimi reviewed public code; accepted findings were fixed. This does not certify clinical accuracy or a successful live Gemini generation. Release IDs and screenshots are tracked in the owning workspace delivery receipt.
+
 ## 2026-09-29 - Checked source quotations and recoverable lookup failures
 
 Source analysis now returns structured evidence, verifies each quote against the named uploaded file, and distinguishes partial support, conflicting evidence and no matching passage. A missing passage does not imply the original PDF lacks it. Gemini overload/quota failures preserve their status and have an explicit retry action; errors no longer become tutor evidence. The tutor treats the authored key as a claim to assess, not an authoritative source. PDF text imports identify embedded-image gaps. The shared prompt limit is now 1,000,000 characters to accommodate complete recovered sources without truncation.

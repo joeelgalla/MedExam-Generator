@@ -6,12 +6,14 @@ Reusable study projects for medical rotations: keep learning objectives, topic r
 
 Open https://med-exam-generator.vercel.app/ and **sign in** to keep projects and progress in your account across devices. **On this device** is an optional mode that stays in one browser. The standalone player remains at `/practice.html`.
 
-1. Create a project or **Import** a shared `.medexam` file.
-2. Open it and start a saved exam, **Import exam** from a JSON file, or **Paste exam JSON**.
-3. Questions, answers, flags and the original timer deadline are saved. Submit to review explanations and see progress by topic, bucket and objective. Unanswered questions are excluded from weakness calculations.
-4. For another exam, expand **Make the next exam with your AI**, choose sections/settings, **Download AI packet**, and **Copy prompt**. Attach the packet to your AI, then import the returned JSON into this project.
-5. Built-in generation uses the same instructions, references, worked examples and answered-question evidence. It supports up to 20 questions per request. Use the packet/import route for a full 60-question mock. A shorter valid response is saved with its actual count; there is no automatic paid retry.
-6. **Share this project** exports the recipe, objectives and optionally references/exams. The recipient gets a new project with empty progress. **Share exam** exports only that exam and its grading key. **Download private backup** includes personal work and is for recovery, not sharing.
+1. Create a project or choose **Import project** for a friend's `.medexam` file. Each project uses the same **Exams**, **Progress** and **Materials** navigation.
+2. In **Materials**, add objectives and notes. In **Exams → Generate an exam**, choose length, time limit, difficulty and topics, then generate. Questions are saved first; the timer starts only when you choose **Start exam**.
+3. **Import an exam** adds a JSON file or pasted JSON without replacing existing exams or progress. It complements the built-in generator.
+4. Take an exam, then review explanations. **Continue exam** preserves unfinished answers and the original deadline. **Progress** includes earlier exams, including projects created before the reusable exam library.
+5. Prefer your own AI? The optional section inside **Generate an exam** explains how to download the same instructions and materials, attach them to ChatGPT/Claude, and import the result. Built-in generation supports up to 20 questions per request; no automatic paid retries occur.
+6. **Share project** opens a download dialog with copyable instructions for your friend. They get an independent copy with fresh progress. **Download exam** shares a single question set. Private backups and recovery are in a separate collapsed section.
+
+When another browser tab controls a project, choose **Use this tab** to hand over after saving. Closing the controlling tab also releases the project automatically. AI availability is checked before generation; observed quota exhaustion is remembered for the browser session until **Check again**. The availability check does not consume Gemini quota or prove that quota remains.
 
 Shared files can be imported into your account after confirming the cloud upload. For an existing device project, use **Sign in to save to account**, then **Save to account**. This preserves its sources, exams, answers, flags and timer, keeps the original device copy as a backup, and opens the saved account project. Retrying uses the same account-scoped ID. Account storage and Gemini permission are separate; transferring a device project does not turn Gemini on. Keep held-out exam recalls out of project source files and examples.
 

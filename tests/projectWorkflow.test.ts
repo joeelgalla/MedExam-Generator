@@ -148,3 +148,18 @@ test('explicit exam revisions import and share without resetting progress or acc
  assert.equal(friend.savedExams?.[0].contentRevision,2);assert.equal(friend.examHistory.length,0);
  for(const contentRevision of [0,-1,1.5,'2'])assert.throws(()=>parseProjectExam({...fixture(),contentRevision}),/Content revision/);
 });
+
+
+test('both exam download formats import into a friend project without answers or attempts',()=>{
+ const mapped=parseProjectExam(fixture());
+ const legacyRows=fixture().questions.map(q=>({...q,metadata:{losTested:q.metadata.losTested,cluster:'Synthetic',cognitiveLevel:'1.2',subtype:'diagnosis',week:3}}));
+ const legacy=parseProjectExam({questions:legacyRows,title:'Earlier exam'});
+ for(const exam of [mapped,legacy]){
+   const exported=JSON.parse(JSON.stringify(exam.registry?{...exam,format:'medexam-practice'}:exam));
+   const imported=parseProjectExam(exported);
+   assert.deepEqual(imported.questions,exam.questions);
+   const recipient=addExam(importProject({name:'Friend',referenceTotalQuestions:40,blueprint:[],learningObjectivesFiles:[]},'friend','local'),imported);
+   assert.equal(recipient.examHistory.length,0);assert.equal(recipient.activeExam.questions.length,0);
+   assert.equal(recipient.savedExams?.length,1);
+ }
+});

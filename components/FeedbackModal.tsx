@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {Copy, Mail, MessageSquare, X} from 'lucide-react';
+import {Copy, Mail} from 'lucide-react';
+import WorkspaceDialog from './WorkspaceDialog';
 
 // Keep this component outside App: a nested component remounts on each input
 // update, replacing the focused textarea after the first character.
@@ -7,10 +8,7 @@ export default function FeedbackModal({text,onChange,onClose,user}:{text:string;
   const [notice,setNotice]=useState('');
   const body=`MedExam Beta Feedback\nUser: ${user || 'Guest'}\n\n${text}`;
   const email=`mailto:?subject=${encodeURIComponent('MedExam Beta Feedback')}&body=${encodeURIComponent(body)}`;
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-    <div role="dialog" aria-modal="true" aria-labelledby="feedback-title" className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative" onKeyDown={e=>{if(e.key==='Escape')onClose();}}>
-      <button aria-label="Close feedback" onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
-      <h3 id="feedback-title" className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><MessageSquare className="w-5 h-5 text-blue-600"/> Beta Feedback</h3>
+  return <WorkspaceDialog title="Beta Feedback" onClose={onClose}>
       <p className="text-sm text-slate-500 mb-4">Copy your feedback to share with the app owner, or open an email draft and choose a recipient. Closing this dialog keeps your draft.</p>
       <label htmlFor="feedback-text" className="sr-only">Describe your issue or suggestion</label>
       <textarea id="feedback-text" autoFocus value={text} onChange={e=>{onChange(e.target.value);setNotice('');}} placeholder="Describe your issue or suggestion..." className="w-full h-32 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y mb-4 text-sm"/>
@@ -20,6 +18,5 @@ export default function FeedbackModal({text,onChange,onClose,user}:{text:string;
         <button disabled={!text} className="text-sm text-slate-600 disabled:text-slate-300 px-2" onClick={()=>{onChange('');setNotice('');}}>Clear</button>
       </div>
       {notice && <p role="status" className="text-sm mt-3 text-blue-800">{notice}</p>}
-    </div>
-  </div>;
+  </WorkspaceDialog>;
 }
