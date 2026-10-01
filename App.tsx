@@ -349,7 +349,6 @@ function App() {
   const handleOptionSelect = (questionId: number, option: string) => {
     const activeProject=projectRef.current;
     if (!activeProject || activeProject.activeExam.status!=='active') return;
-    if(activeProject.activeExam.endsAt && Date.now()>=activeProject.activeExam.endsAt){updateActiveProject(submitProjectExam(activeProject),true);return;}
     const updatedAnswers = {
         ...activeProject.activeExam.userAnswers,
         [questionId]: option
@@ -362,8 +361,7 @@ function App() {
 
   const handleToggleFlag = (questionId: number) => {
       const activeProject=projectRef.current;
-      if(activeProject?.activeExam.endsAt && Date.now()>=activeProject.activeExam.endsAt){updateActiveProject(submitProjectExam(activeProject),true);return;}
-      if (!activeProject) return;
+      if (!activeProject || activeProject.activeExam.status !== 'active') return;
       const currentFlags = activeProject.activeExam.flaggedQuestions || [];
       const isFlagged = currentFlags.includes(questionId);
       
@@ -390,8 +388,6 @@ function App() {
     });
     return score;
   };
-
-  useEffect(()=>{const p=projectRef.current;if(!otherTab&&p?.activeExam.status==='active'&&p.activeExam.endsAt&&p.activeExam.endsAt<=Date.now())void updateActiveProject(submitProjectExam(p),true);},[otherTab,activeProject?.activeExam.attemptId,activeProject?.activeExam.endsAt]);
 
   const handleFinishExam = () => {
     if (!activeProject || activeProject.activeExam.questions.length === 0) return;
@@ -699,7 +695,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
         {activeProject.syncNotice&&<p role="status" className="p-3 mb-4 bg-amber-50 text-amber-900 rounded">{activeProject.syncNotice} <a className="underline" href="/?local=1">Open device projects</a></p>}
         {generationNotice&&<p role="status" className="p-3 mb-4 bg-blue-50 text-blue-800 rounded">{generationNotice}</p>}
         {otherTab&&<div role="alert" className="p-4 rounded-xl border border-amber-200 bg-amber-50 mb-5 flex flex-wrap justify-between gap-4 items-center"><div><p className="font-medium text-amber-950">This project is active in another tab</p><p className="text-sm text-amber-900 mt-1">{lockMessage||'Continue here to bring over the latest saved answers. Or close the other tab; this one will become ready automatically.'}</p></div><button className="action-secondary" onClick={()=>{setLockMessage('Asking the other tab to save and switch. If it uses an older app version, close it and this tab will recover automatically.');lockController.current?.useHere();}}>Use this tab</button></div>}
-        {activeExam.status==='active'&&activeExam.endsAt&&<ExamTimer key={activeExam.attemptId} endsAt={activeExam.endsAt} answered={Object.keys(activeExam.userAnswers).length} total={activeExam.questions.length} onExpire={()=>{const latest=projectRef.current;if(!latest||otherTabRef.current)return false;void updateActiveProject(submitProjectExam(latest),true);return true;}}/>}
+        {activeExam.status==='active'&&activeExam.endsAt&&<ExamTimer key={activeExam.attemptId} endsAt={activeExam.endsAt} answered={Object.keys(activeExam.userAnswers).length} total={activeExam.questions.length}/>}
 
         {activeTab==='overview'&&<ProjectExamTools key={activeProject.id} initialAction={workspaceAction} onActionConsumed={()=>setWorkspaceAction(undefined)} onProgress={()=>setActiveTab('analytics')} project={activeProject} disabled={loading||otherTab||savingToAccount} onUpdate={updateActiveProject} onStart={exam=>{try{updateActiveProject(beginProjectExam(projectRef.current||activeProject,exam),true);setError(null);setGenerationNotice('');setActiveTab('exam');}catch(e){setError((e as Error).message);}}} onError={setError} onGenerate={()=>{setError(null);setActiveTab('generate');}} onResume={()=>setActiveTab('exam')} onMaterials={()=>setActiveTab('materials')}/>}
         {activeTab==='generate'&&<ExamGeneratorPanel key={activeProject.id} project={activeProject} onGenerate={handleGenerate} onUpdate={updateActiveProject} onBack={()=>setActiveTab('overview')} onMaterials={()=>setActiveTab('materials')} onResume={()=>setActiveTab('exam')} onImport={()=>{setWorkspaceAction('import');setActiveTab('overview');}} loading={loading} disabled={otherTab||savingToAccount} signedIn={isAuthenticated} availability={aiAvailability} onCheckAccess={()=>{try{sessionStorage.removeItem(`medexam-ai-quota-${currentUserId}`);}catch{}setError(null);setAICheck(x=>x+1);}} error={error}/>}

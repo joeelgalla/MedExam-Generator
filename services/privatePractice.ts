@@ -158,7 +158,7 @@ function parseAttempt(value: unknown, completed: boolean): PracticeAttempt {
   if (endsAt - startedAt !== exam.durationMinutes * 60000) fail('The saved timer does not match the exam duration.');
   const result: PracticeAttempt = { id: id(v.id, 'Attempt ID'), exam, answers, flags, startedAt, endsAt };
   if (completed) {
-    result.completedAt = integer(v.completedAt, 'Completion time', startedAt, endsAt);
+    result.completedAt = integer(v.completedAt, 'Completion time', startedAt, 1e14);
     if (v.reason !== 'submitted' && v.reason !== 'time-expired') fail('Invalid completion reason.');
     result.reason = v.reason;
   } else if (v.completedAt !== undefined || v.reason !== undefined) fail('An active attempt cannot already be completed.');
@@ -187,13 +187,12 @@ export function startAttempt(state: PracticeState, exam: PracticeExam, attemptId
 export function finishAttempt(state: PracticeState, now: number, reason: PracticeAttempt['reason']): PracticeState {
   if (!state.active) return state;
   const active = state.active;
-  const finished: PracticeAttempt = { ...active, completedAt: Math.max(active.startedAt, Math.min(now, active.endsAt)), reason: now >= active.endsAt ? 'time-expired' : reason };
+  const finished: PracticeAttempt = { ...active, completedAt: Math.max(active.startedAt, now), reason };
   return { ...state, active: null, history: [...state.history, finished] };
 }
 export function recordAnswer(state: PracticeState, questionId: number, answer: Answer | null, now: number): PracticeState {
   const a = state.active;
   if (!a) return state;
-  if (now >= a.endsAt) return finishAttempt(state, now, 'time-expired');
   if (!a.exam.questions.some(q => q.id === questionId)) fail('Unknown question.');
   const answers = { ...a.answers };
   if (answer === null) delete answers[questionId]; else answers[questionId] = answer;

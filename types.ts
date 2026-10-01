@@ -104,6 +104,7 @@ export interface ActiveExamState {
   durationMinutes?: number;
   startedAt?: number;
   endsAt?: number;
+  recoveredFromAttemptId?: string;
   selectedSectionIds?: string[];
 }
 
@@ -155,6 +156,7 @@ export interface Project {
   blueprint: BlueprintSection[]; // The buckets (Week 48, Clinical Skills, etc.)
 
   examHistory: ExamAttempt[];
+  voidedAttemptIds?: string[]; // Withdrawn accidental submissions must not return from an older device copy.
   activeExam: ActiveExamState;
 }
 

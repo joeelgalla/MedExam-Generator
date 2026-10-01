@@ -78,15 +78,18 @@ test('clearing an answer does not count it as answered', () => {
   const s = recordAnswer(recordAnswer(started(), 2, 'C', 100010), 2, null, 100011);
   assert.equal(score(s.active!).answered, 0);
 });
-test('absolute deadline survives time away and never accepts a late answer', () => {
+test('pacing deadline survives time away without submitting or rejecting later answers', () => {
   const s = started();
   assert.equal(remainingSeconds(s.active!, 115000), 45);
   const restored = parseState(JSON.parse(JSON.stringify(s)));
   const expired = recordAnswer(restored, 1, 'B', 160001);
-  assert.equal(expired.active, null);
-  assert.deepEqual(expired.history[0].answers, {});
-  assert.equal(expired.history[0].reason, 'time-expired');
-  assert.equal(expired.history[0].completedAt, 160000);
+  assert.equal(expired.history.length, 0);
+  assert.deepEqual(expired.active!.answers, {1:'B'});
+  assert.equal(remainingSeconds(expired.active!,160001),0);
+  const finished=finishAttempt(expired,170000,'submitted');
+  assert.equal(finished.history[0].reason,'submitted');
+  assert.equal(finished.history[0].completedAt,170000);
+  assert.deepEqual(parseBackup(backup(finished)),finished);
 });
 test('completion is idempotent and retains flags', () => {
   const s = started(); s.active!.flags = [1, 3];
