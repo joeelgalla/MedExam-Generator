@@ -109,7 +109,7 @@ export interface ActiveExamState {
 
 export interface ObjectiveRegistry {
   id: string;
-  objectives: Record<string, { topicId: string; text?: string; assessmentType?: 'knowledge' | 'skill' }>;
+  objectives: Record<string, { topicId: string; text?: string; assessmentType?: 'knowledge' | 'skill'; sourceTopicIds?: string[] }>;
   topics: Record<string, { title: string; bucketId: string }>;
   buckets: Record<string, string>;
 }
@@ -118,6 +118,7 @@ export interface SavedExam {
   format: 'medexam-exam';
   version: 1;
   examId: string;
+  retired?: boolean; // Withdrawn from new practice; saved attempts and backups remain intact.
   contentRevision?: number; // Higher revisions replace the bank, never saved attempt snapshots.
   title: string;
   durationMinutes: number;
@@ -133,6 +134,9 @@ export interface Project {
   description: string;
   questionWritingInstructions?: string;
   styleExamples?: ExamQuestion[];
+  // Writing references are separate from teaching sources and never sent to the tutor.
+  examReferenceFiles?: UploadedFile[];
+  sourcePolicy?: 'course-first' | 'all-sources';
   registry?: ObjectiveRegistry;
   savedExams?: SavedExam[];
   archivedExams?: ActiveExamState[];

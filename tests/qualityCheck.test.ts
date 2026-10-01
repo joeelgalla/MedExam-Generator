@@ -12,7 +12,7 @@ async function verifier() {
 }
 const quote='Adding red and blue counters gives the total number of counters.';
 const files=[{id:'source',name:'Synthetic fixture',content:'[Original handbook PDF page 7]\n'+quote,type:'txt',size:100}];
-const check=(q:any)=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,difficulty:'appropriate',reasoning:'Add the two sets to obtain the total.',optionFeedback:Object.values(q.options).map(n=>({optionText:n,reason:`The proposed count is ${n}. Hepatitis B is a medical name, not an option label.`})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:files[0].name,quote}]});
+const check=(q:any)=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,homogeneousOptions:true,difficulty:'appropriate',reasoning:'Add the two sets to obtain the total.',optionFeedback:Object.values(q.options).map(n=>({optionText:n,plausibleAlternative:true,whenAppropriate:'The total would be correct if the groups contained different counts.',reason:`The proposed count is ${n}. Hepatitis B is a medical name, not an option label.`})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:files[0].name,quote}]});
 test('blind checking hides keys and rationales, rejects disagreement and ambiguous answers, and binds feedback during key balancing',async()=>{
  const {verifyDraft}=await verifier();const qs=parseProjectExam(fixture()).questions;
  qs[0].explanation='WRITER_KEY_DO_NOT_EXPOSE';
@@ -47,4 +47,24 @@ test('a failed checking service is reported distinctly and never retried; a mism
  q.metadata.rechecksItemId='missed-1';
  const result=await verifyDraft({models:{generateContent:async()=>({text:JSON.stringify({checks:[{...check(q),recheckFits:false}]})})}},'synthetic-pro',[q],files,'standard',{}, {'missed-1':{task:'Combine both groups',vignette:'An earlier case',leadIn:'What is the total?'}});
  assert.equal(result.exam.length,0);assert.match(result.excluded[0].reason,/missed task/);
+});
+
+test('the checker receives exam references and rejects an item that fails reference calibration',async()=>{
+ const {verifyDraft}=await verifier();const q=parseProjectExam(fixture()).questions[0];let sent='';
+ const ai={models:{generateContent:async(r:any)=>{sent=r.contents;return {text:JSON.stringify({checks:[{...check(q),referenceFit:false}]})};}}};
+ const result=await verifyDraft(ai,'synthetic',[q],files,'hard',{}, {}, {},Date.now()+10000,[{...files[0],name:'Historical exam example',content:'ACTUAL_EXAM_STYLE_REFERENCE'}]);
+ assert.ok(sent.includes('ACTUAL_EXAM_STYLE_REFERENCE'));assert.ok(!sent.includes(q.explanation));
+ assert.equal(result.exam.length,0);assert.match(result.excluded[0].reason,/exam references/);
+});
+
+
+test('one invented source does not discard another valid item and historical text cannot leak through feedback',async()=>{
+ const {verifyDraft}=await verifier();const qs=parseProjectExam(fixture()).questions.slice(0,2);
+ qs[1].metadata.sourceDocument='Invented';
+ const first=await verifyDraft({models:{generateContent:async()=>({text:JSON.stringify({checks:[check(qs[0])]})})}},'synthetic',qs,files,'hard');
+ assert.equal(first.exam.length,1);assert.equal(first.excluded.length,1);assert.match(first.excluded[0].reason,/not a supplied/);
+ const historical='A unique imaginary traveller carries twelve purple stones to the northern village before dawn.';
+ const leaked={...check(qs[0]),referenceFit:true,reasoning:historical};
+ const second=await verifyDraft({models:{generateContent:async()=>({text:JSON.stringify({checks:[leaked]})})}},'synthetic',[qs[0]],files,'hard',{}, {}, {},Date.now()+10000,[{...files[0],name:'Past question',content:historical}]);
+ assert.equal(second.exam.length,0);assert.match(second.excluded[0].reason,/copied a passage/);
 });

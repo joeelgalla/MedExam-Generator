@@ -34,10 +34,10 @@ test('coverage retains untaught objectives and skills with blanks treated as mis
  assert.equal(rows.find(r=>r.id==='DEMO.1#2')!.answered,0);
  assert.equal(rows.find(r=>r.id==='SKILL.1')!.skill,true);
 });
-test('generation plans recent misses below statistical thresholds, skips skills and includes uncovered entries',()=>{
+test('generation plans recent misses below statistical thresholds, includes written knowledge associated with skills and uncovered entries',()=>{
  const p=project();p.examHistory=[attempt('2026-09-30T01:00:00Z','A')];
  const plan=generationObjectivePlan(p,['basics'],6);
- assert.equal(plan[0],'DEMO.1#1');assert.ok(plan.includes('DEMO.1#2'));assert.ok(!plan.includes('SKILL.1'));
+ assert.equal(plan[0],'DEMO.1#1');assert.ok(plan.includes('DEMO.1#2'));assert.ok(plan.includes('SKILL.1'));
  assert.deepEqual(generationObjectivePlan(p,['absent'],20),[]);
  // A correct retry of the identical item resolves that task, without clearing other concepts.
  p.examHistory.push(attempt('2026-10-01T01:00:00Z','B'));
@@ -106,6 +106,7 @@ test('repeating one correct question cannot certify strength in the objective',(
 });
 test('generation cannot silently omit a planned objective, return fewer items or add a giveaway',()=>{
  const p=project();p.savedExams=[];p.activeExam.questionCount=2;
+ delete p.registry!.objectives['SKILL.1']; // This fixture checks two specific knowledge tasks; skills have their own inclusion regression above.
  const qs=parseProjectExam(fixture()).questions.slice(0,2);
  qs[1].metadata.objectiveIds=['DEMO.1#2'];
  assert.doesNotThrow(()=>verifyGeneratedSet(qs,p));
@@ -126,4 +127,32 @@ test('a plan caps complete source topics and rotates untouched topics into later
 test('near-duplicate gate catches changed names/numbers when the decision and key are retained',()=>{
  const q=parseProjectExam(fixture()).questions[0],variant=structuredClone(q);variant.metadata.itemId='another';variant.vignette=variant.vignette.replace('1 red','9 red');
  assert.equal(nearDuplicatePractice(q,variant),true);variant.correctAnswer='D';assert.equal(nearDuplicatePractice(q,variant),false);
+});
+
+test('real exam references guide generation, survive sharing, and never become tutor or evidence sources',async()=>{
+ const {generationExamples,generationSources,questionSources}=await import('../services/generationPrompt.ts');
+ const p=project();p.examReferenceFiles=[{id:'past-exam',name:'Actual sample exam',type:'txt',size:40,content:'REAL_EXAM_REFERENCE_DATA_FOR_WRITER'}];
+ const q=p.savedExams![0].questions[0];
+ const prompt=buildGenerationPrompt(p);
+ assert.ok(prompt.includes('REAL_EXAM_REFERENCE_DATA_FOR_WRITER'));
+ assert.ok(!prompt.includes('historical recall bank is deliberately absent'));
+ assert.equal(generationExamples(p).length,1);
+ assert.ok(!generationSources(p).some(f=>f.id==='past-exam'));
+ assert.ok(!questionSources(p,q).some(f=>f.id==='past-exam'));
+ const friend=importProject(projectShare(p,true,true),'friend','local');
+ assert.equal(friend.examReferenceFiles?.[0].content,p.examReferenceFiles[0].content);
+ assert.equal(importProject(projectShare(p,false,true),'friend','local').examReferenceFiles?.length,0);
+});
+
+test('course-first generation excludes supplements and can find clinical teaching across a skill bucket boundary',async()=>{
+ const {generationSources,questionSources}=await import('../services/generationPrompt.ts');
+ const p=project();const topicId='clinical';p.registry!.topics.clinical={title:'Clinical teaching',bucketId:'basics'};p.registry!.objectives['SKILL.1'].sourceTopicIds=[topicId];
+ p.blueprint.push({id:'other',title:'Other clinical chapter',description:'',questionCount:'1',files:[{...source,id:'cross-topic',name:'Cross-topic clinical teaching',topicIds:[topicId]},{...source,id:'extra',name:'Supplement',kind:'supplement',topicIds:[topicId]}]});
+ p.activeExam.questionCount=6;p.activeExam.selectedSectionIds=['basics'];
+ const chosen=generationSources(p);
+ assert.ok(chosen.some(f=>f.id==='cross-topic'));assert.ok(!chosen.some(f=>f.id==='extra'));
+ const q=p.savedExams![0].questions[0];q.metadata.sourceDocument='Cross-topic clinical teaching';
+ assert.ok(questionSources(p,q).some(f=>f.id==='cross-topic'));
+ p.sourcePolicy='all-sources';assert.ok(generationSources(p).some(f=>f.id==='extra'));
+ const friend=importProject(projectShare(p),'friend','local');assert.deepEqual(friend.registry!.objectives['SKILL.1'].sourceTopicIds,['clinical']);
 });

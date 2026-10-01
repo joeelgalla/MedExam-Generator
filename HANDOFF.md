@@ -1,5 +1,14 @@
 # Handoff
 
+## 2026-10-01 - Actual exam calibration and course-supported practice
+
+Added project exam-reference files shared by built-in generation and external instructions. Actual examples guide task demands and the source-blind answer checker, remain separate from teaching evidence and the tutor, and survive project sharing/backups. Course-first generation excludes explicitly marked supplemental notes. Written knowledge associated with every objective is eligible; sourceTopicIds retrieve clinical teaching across bucket boundaries. Removed arbitrary cognitive-level quotas and require plausible parallel distractors. Per-item invalid-source isolation, reference passage-copy checks and legacy FILE-marker compatibility prevent avoidable whole-set failures.
+
+Added versioned withdrawal of weak banks: withdrawn items are absent from new practice, coverage and friend shares while old attempt snapshots/backups survive. Three-way configuration merging prevents an old tab's answer save from undoing repaired instructions or source mappings. Shared-project controls disclose inclusion of exam examples.
+
+Validation: 90 automated tests, TypeScript and production build passed. Real Chrome synthetic tests verified reference-file import, written-skill coverage, desktop/390px layout and no page errors. Existing Fable partner identified source mapping, quote leakage, batch scope and persistence issues; implemented corrections have targeted regression tests. Private clinical-bank review and production deployment receipts are recorded in Clerkship, not this public repository. No schema changes or embedded course data.
+
+
 ## 2026-10-01 - Objective planning and checked generation
 
 Blanks in submitted exams now count as misses throughout targeting and review. Added primary-objective coverage including absent questions and performance skills, one-click gaps/misses practice, distinct-item strength thresholds, and stable recheck chains that target a missed rule without clearing it on a different fact. Structured plans rotate across at most six complete source topics; legacy free-text projects retain generation/import and feedback.

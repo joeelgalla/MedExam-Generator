@@ -15,7 +15,7 @@ test('production generation uses the replacement model and parses a mocked SDK r
   const requests: { url: string; body: any }[] = [];
   const exam = fixture().questions.slice(0,1);
   const quote='Adding red and blue counters gives the total number of counters.';
-  const checks=exam.map(q=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,difficulty:'appropriate',reasoning:'Add both groups of counters; the total is three.',optionFeedback:Object.entries(q.options).map(([l,n])=>({optionText:n,reason:l==='B'?'This includes all counters.':'This miscounts the counters.'})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:'Synthetic fixture',quote}]}));
+  const checks=exam.map(q=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,difficulty:'appropriate',homogeneousOptions:true,reasoning:'Add both groups of counters; the total is three.',optionFeedback:Object.entries(q.options).map(([l,n])=>({optionText:n,plausibleAlternative:true,whenAppropriate:'A nearby case with that number of counters would support this value.',reason:l==='B'?'This includes all counters.':'This miscounts the counters.'})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:'Synthetic fixture',quote}]}));
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init);
     if(request.url.includes('/auth/v1/user')) return new Response(JSON.stringify({id:'synthetic-user',is_anonymous:false}),{headers:{'content-type':'application/json'}});
@@ -26,6 +26,7 @@ test('production generation uses the replacement model and parses a mocked SDK r
     const bundle = await build({ entryPoints: ['api/generate.ts'], bundle: true, platform: 'node', format: 'cjs', write: false, packages: 'external' });
     const module = { exports: {} as { default: (req: unknown, res: unknown) => Promise<unknown> } };
     new Function('require', 'module', 'exports', bundle.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
+    const promptSources=(module.exports as any).promptSources;assert.deepEqual(promptSources('--- FILE: current.txt ---\nCurrent source\n--- END FILE ---\n--- FILE (Older section): older.txt ---\nOlder source\n--- END FILE ---'),[{name:'current.txt',content:'Current source'},{name:'older.txt',content:'Older source'}]);
     for (const [difficulty, level, model] of [['standard', 'LOW', 'gemini-3.1-pro-preview'], ['hard', 'MEDIUM', 'test-configured-pro']] as const) {
       if (difficulty === 'hard') process.env.GEMINI_QUESTION_MODEL = ` ${model} `;
       let status = 0, body: any;

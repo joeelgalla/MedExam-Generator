@@ -24,7 +24,11 @@ export function mergeProjectCopies(local:Project,remote:Project,baseline?:Projec
  const examHistory=union(remote.examHistory || [],local.examHistory || [],x=>x.id,'attempt');
  const savedExams=mergeBanks(remote.savedExams || [],local.savedExams || []);
  const archivedExams=union(remote.archivedExams || [],local.archivedExams || [],x=>x.attemptId || canonical(x),'unfinished exam');
- const latest=local.lastModified>=remote.lastModified?local:remote;
+ const latest={...(local.lastModified>=remote.lastModified?local:remote)};
+ // Studying in an older tab must not undo a newly repaired recipe or source map.
+ for(const key of ['name','description','questionWritingInstructions','styleExamples','examReferenceFiles','sourcePolicy','registry','blueprint','referenceTotalQuestions','learningObjectivesFiles'] as const) {
+  if(baseline&&canonical(local[key])===canonical(baseline[key]))(latest as any)[key]=remote[key];
+ }
  const a=local.activeExam,b=remote.activeExam;
  const unfinished=(x:typeof a)=>x.status==='active'&&x.questions.length>0&&!examHistory.some(h=>h.id===x.attemptId);
  if(unfinished(a)&&unfinished(b)&&a.attemptId!==b.attemptId)throw new Error('Two devices have different unfinished exams. Finish one, then retry sync; your device copy is preserved.');
