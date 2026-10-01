@@ -2,6 +2,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ExamAttempt, ExamQuestion, ChatMessage, ObjectiveRegistry } from '../types';
 import QuestionTutorPanel from './QuestionTutorPanel';
+import SourcePassages from './SourcePassages';
+import {studyItemKey} from '../services/objectiveCoverage';
 import {
   BarChart3,
   TrendingUp,
@@ -34,6 +36,7 @@ interface AnalyticsDashboardProps {
 }
 
 interface PerformanceMetric {
+  items:Set<string>;
   correct: number;
   wrong: number;
   flagged: number; // count of questions the user flagged (irrespective of correctness)
@@ -45,6 +48,7 @@ interface PerformanceMetric {
 
 // Flat event per question attempt — enables easy drill-down aggregation across dimensions
 interface QuestionEvent {
+  itemKey:string;
   attemptId: string;
   questionId: number;
   week: number;
@@ -58,6 +62,7 @@ interface QuestionEvent {
 }
 
 const emptyMetric = (): PerformanceMetric => ({
+  items:new Set(),
   correct: 0,
   wrong: 0,
   flagged: 0,
@@ -76,6 +81,7 @@ const finalizeMetric = (m: PerformanceMetric): PerformanceMetric => ({
 const updateMetric = (record: Record<string, PerformanceMetric>, key: string, event: QuestionEvent) => {
   if (!record[key]) record[key] = emptyMetric();
   const m = record[key];
+  m.items.add(event.itemKey);
   m.total += 1;
   if (event.isCorrect) m.correct += 1; else m.wrong += 1;
   if (event.isFlagged) m.flagged += 1;
@@ -149,6 +155,8 @@ const ReviewRowExpanded: React.FC<ReviewRowExpandedProps> = ({ item, userAnswerT
           <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.explanation}</p>
         </div>
       )}
+      {item.question.metadata.coverageNote&&<p className="text-xs text-slate-600">Task sampled: {item.question.metadata.coverageNote}</p>}
+      <SourcePassages question={item.question}/>
       {(item.question.metadata.losTested || []).length > 0 && (
         <div className="text-xs text-slate-500">
           <span className="font-medium text-slate-600">LOs tested:</span> {item.question.metadata.losTested.join(', ')}
@@ -183,15 +191,15 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
     history.forEach(attempt => {
       const flagSet = new Set(attempt.flaggedQuestions || []);
       attempt.questions.forEach(q => {
-        if(!['A','B','C','D'].includes(attempt.answers[q.id])) return;
         out.push({
+          itemKey:studyItemKey(q),
           attemptId: attempt.id,
           questionId: q.id,
           week: q.metadata.week,
           group: (q.metadata.bucketId && registry?.buckets[q.metadata.bucketId]) || (q.metadata.bucketId ? `Bucket ${q.metadata.bucketId}` : `Week ${q.metadata.week}`),
           cluster: registry?.topics[q.metadata.topicId || '']?.title || (q.metadata.cluster || 'Uncategorized').trim(),
           cognitiveLevel: q.metadata.cognitiveLevel,
-          los: (q.metadata.objectiveIds?.length ? q.metadata.objectiveIds : q.metadata.losTested || []).map(s => s.trim()).filter(Boolean),
+          los: (q.metadata.objectiveIds?.length ? q.metadata.objectiveIds : q.metadata.losTested || []).slice(0,1).map(s => s.trim()).filter(Boolean),
           sourceDocument: q.metadata.sourceDocument?.trim() || undefined,
           isCorrect: attempt.answers[q.id] === q.correctAnswer,
           isFlagged: flagSet.has(q.id),
@@ -225,7 +233,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
   const filteredReviewItems = useMemo<ReviewItem[]>(() => {
     const needle = reviewSearch.trim().toLowerCase();
     return reviewItems.filter(item => {
-      if (reviewFilter === 'wrong' && (item.isCorrect || !item.userAnswer)) return false;
+      if (reviewFilter === 'wrong' && item.isCorrect) return false;
       if (reviewFilter === 'flagged' && !item.isFlagged) return false;
       if (reviewFilter === 'needs-review' && item.isCorrect && !item.isFlagged) return false;
       if (!needle) return true;
@@ -245,7 +253,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
     let flagged = 0;
     let needsReview = 0;
     reviewItems.forEach(item => {
-      if (item.userAnswer && !item.isCorrect) wrong += 1;
+      if (!item.isCorrect) wrong += 1;
       if (item.isFlagged) flagged += 1;
       if (!item.isCorrect || item.isFlagged) needsReview += 1;
     });
@@ -328,7 +336,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
     const loInWeek: Record<string, PerformanceMetric> = {};
     weekEvents.forEach(ev => ev.los.forEach(lo => updateMetric(loInWeek, lo, ev)));
     const weakestLo = formatRecord(loInWeek)
-      .filter(([, m]) => m.total >= 5)
+      .filter(([, m]) => m.items.size >= 5)
       .sort((a, b) => b[1].needsReviewPct - a[1].needsReviewPct)[0];
 
     // 3. Within that week+LO, which source document is most implicated
@@ -367,7 +375,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
     if (!stats) return { strengths: [], recommendations: [] as string[] };
 
     const strengths = stats.clusterPerformance
-      .filter(([, m]) => m.accuracyPct >= 80 && m.total >= 5)
+      .filter(([, m]) => m.accuracyPct >= 80 && m.items.size >= 5)
       .sort((a, b) => b[1].accuracyPct - a[1].accuracyPct)
       .slice(0, 3)
       .map(([topic, metric]) => ({ topic, score: metric.accuracyPct }));
@@ -452,7 +460,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
             <Target className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <div className="text-sm text-slate-500 font-medium">Avg Accuracy</div>
+            <div className="text-sm text-slate-500 font-medium">Score · blanks count as wrong</div>
             <div className="text-3xl font-bold text-slate-900">{stats.totalQuestionsAnswered ? `${stats.averageAccuracy}%` : '—'}</div>
           </div>
         </div>
@@ -470,7 +478,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
             <BookOpen className="w-6 h-6 text-indigo-600" />
           </div>
           <div>
-            <div className="text-sm text-slate-500 font-medium">Questions Answered</div>
+            <div className="text-sm text-slate-500 font-medium">Questions in completed exams</div>
             <div className="text-3xl font-bold text-slate-900">{stats.totalQuestionsAnswered}</div>
           </div>
         </div>
@@ -714,7 +722,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {metric.total < 5 ? <span className="text-xs text-slate-500">Limited data</span> : metric.accuracyPct >= 80 ? (
+                          {metric.items.size < 5 ? <span className="text-xs text-slate-500">Limited data</span> : metric.accuracyPct >= 80 ? (
                             <span className="inline-flex px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">Strong so far</span>
                           ) : metric.accuracyPct < 60 ? (
                             <span className="inline-flex px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold">Review</span>
@@ -777,7 +785,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {([
                   { id: 'needs-review', label: `Needs review`, count: reviewCounts.needsReview },
-                  { id: 'wrong', label: `Wrong only`, count: reviewCounts.wrong },
+                  { id: 'wrong', label: `Wrong or blank`, count: reviewCounts.wrong },
                   { id: 'flagged', label: `Flagged only`, count: reviewCounts.flagged },
                   { id: 'all', label: `All`, count: reviewCounts.total },
                 ] as const).map(opt => {
@@ -817,7 +825,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
                           className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors"
                         >
                           <span className="mt-0.5 flex-shrink-0">
-                            {!item.userAnswer ? <span className="text-slate-500">Skipped</span> : item.isCorrect
+                            {!item.userAnswer ? <span className="text-slate-500">Blank · missed</span> : item.isCorrect
                               ? <CheckCircle2 className="w-4 h-4 text-green-500" />
                               : <XCircle className="w-4 h-4 text-red-500" />}
                           </span>

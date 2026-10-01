@@ -18,8 +18,8 @@ test('project recipe, selected objectives, source names and targeting share one 
  for(const s of ['recipe marker','context marker','source marker','objective marker','DEMO.1#1','Combine small sets.','PREVIOUS PRACTICE ITEMS','demo-item-1']) assert.ok(prompt.includes(s),s);
  assert.ok(externalPacket(p).includes(prompt));
  assert.equal(totalAnsweredQuestions(p.examHistory),5);
- assert.equal(buildPracticeModeContext(p.examHistory).loStats[0].totalAttempts,5);
- assert.equal(buildPracticeModeContext(p.examHistory).loStats[0].weak,true);
+ assert.equal(buildPracticeModeContext(p.examHistory).loStats[0].totalAttempts,15);
+ assert.equal(buildPracticeModeContext(p.examHistory).loStats[0].weak,false);
  assert.ok(!externalPacket(p,false).includes('source marker'));
  p.activeExam.selectedSectionIds=[];assert.throws(()=>buildGenerationPrompt(p),/Select at least/);
 });
@@ -123,7 +123,7 @@ test('large histories use compact scoped avoidance without dropping ID-based evi
  const p=project();p.activeExam.questionCount=20;
  const questions=Array.from({length:500},(_,i)=>({...parseProjectExam(fixture()).questions[0],id:i+1,vignette:'synthetic '.repeat(300),metadata:{...parseProjectExam(fixture()).questions[0].metadata,itemId:`history-${i}`}}));
  p.examHistory=[{id:'long-history',date:new Date().toISOString(),score:500,totalQuestions:500,questions,answers:Object.fromEntries(questions.map(q=>[q.id,'B']))}];
- const prompt=buildGenerationPrompt(p);assert.ok(prompt.length<300000);assert.ok(prompt.includes('history-499'));assert.ok(prompt.includes('"answered":500'));
+ const prompt=buildGenerationPrompt(p);assert.ok(prompt.length<300000);assert.ok(prompt.includes('history-499'));assert.ok(prompt.includes('"assessed":500'));
 });
 
 test('backup restores old unmapped banks after the project adopts an objective registry',()=>{

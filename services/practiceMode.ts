@@ -4,8 +4,8 @@ import type { ExamAttempt, ExamQuestion, PracticeMode } from '../types.ts';
 
 export const PRACTICE_MODE_UNLOCKS: Record<PracticeMode, number> = {
   balanced: 0,
-  focused: 20,
-  targeted: 50,
+  focused: 1,
+  targeted: 1,
 };
 
 // An LO must have at least this many attempts before we'll call it weak or mastered.
@@ -40,6 +40,7 @@ export interface PracticeModeUnlocks {
 }
 
 interface LoEvent {
+  itemId: string;
   globalIdx: number; // index across all events in chronological order
   isCorrect: boolean;
   isMaintenance: boolean;
@@ -49,6 +50,7 @@ interface LoStat {
   lo: string;
   totalAttempts: number;
   totalCorrect: number;
+  distinctItems: number;
   recentCorrect: number; // correct count over last MASTERY_WINDOW attempts
   recentTotal: number;
   accuracy: number; // 0..1 over all attempts
@@ -64,6 +66,7 @@ interface LoStat {
 
 export interface PracticeModeContext {
   totalAnswered: number;
+  totalAssessed: number;
   loStats: LoStat[]; // sorted: weakest first, then alphabetical
   weakLos: string[];
   strongLos: string[];
@@ -80,7 +83,7 @@ export function totalAnsweredQuestions(history: ExamAttempt[]): number {
 }
 
 export function computeUnlocks(history: ExamAttempt[]): PracticeModeUnlocks {
-  const total = totalAnsweredQuestions(history);
+  const total = history.reduce((n,a)=>n+a.questions.length,0);
   const focusedReq = PRACTICE_MODE_UNLOCKS.focused;
   const targetedReq = PRACTICE_MODE_UNLOCKS.targeted;
   return {
@@ -122,11 +125,11 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
 
   for (const attempt of ordered) {
     for (const q of attempt.questions) {
-      if (!['A','B','C','D'].includes(attempt.answers[q.id])) continue;
+      // History contains submitted exams. A blank is a missed task for future practice.
       const isCorrect = attempt.answers[q.id] === q.correctAnswer;
       const isMaintenance = q.metadata.isMaintenance === true;
-      const ev: LoEvent = { globalIdx, isCorrect, isMaintenance };
-      for (const raw of q.metadata.objectiveIds?.length ? q.metadata.objectiveIds : q.metadata.losTested || []) {
+      const ev: LoEvent = { globalIdx, isCorrect, isMaintenance, itemId:q.metadata.itemId || `${q.vignette} ${q.leadIn}` };
+      for (const raw of (q.metadata.objectiveIds?.length ? q.metadata.objectiveIds : q.metadata.losTested || []).slice(0,1)) {
         const lo = raw.trim();
         if (!lo) continue;
         const arr = loToEvents.get(lo);
@@ -137,7 +140,8 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
     }
   }
 
-  const totalAnswered = globalIdx;
+  const totalAssessed = globalIdx;
+  const totalAnswered = totalAnsweredQuestions(history);
 
   const loStats: LoStat[] = [];
   for (const [lo, events] of loToEvents.entries()) {
@@ -150,7 +154,8 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
     const recentCorrect = recentSlice.reduce((n, e) => n + (e.isCorrect ? 1 : 0), 0);
     const recentAccuracy = recentTotal > 0 ? recentCorrect / recentTotal : 0;
 
-    const meetsSample = totalAttempts >= MIN_LO_SAMPLE;
+    const distinctItems = new Set(events.map(e=>e.itemId)).size;
+    const meetsSample = distinctItems >= MIN_LO_SAMPLE;
     const mastered = meetsSample && recentTotal >= MASTERY_WINDOW && recentAccuracy >= MASTERY_THRESHOLD;
     const weak = meetsSample && accuracy <= WEAK_THRESHOLD;
 
@@ -162,7 +167,7 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
     }
 
     const lastEventGlobalIdx = events[events.length - 1].globalIdx;
-    const questionsSinceLastSeen = Math.max(0, totalAnswered - 1 - lastEventGlobalIdx);
+    const questionsSinceLastSeen = Math.max(0, totalAssessed - 1 - lastEventGlobalIdx);
     const currentInterval = Math.min(
       MAINTENANCE_INTERVAL_MAX,
       MAINTENANCE_BASE_INTERVAL * Math.pow(2, maintenanceStreak),
@@ -173,6 +178,7 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
       lo,
       totalAttempts,
       totalCorrect,
+      distinctItems,
       recentCorrect,
       recentTotal,
       accuracy,
@@ -215,14 +221,14 @@ export function buildPracticeModeContext(history: ExamAttempt[]): PracticeModeCo
     .slice(0, MAX_RECENT_WRONG_STEMS)
     .map(({ question }) => truncate(question.vignette ? `${question.vignette}\n${question.leadIn}` : question.leadIn, 600));
 
-  return { totalAnswered, loStats, weakLos, strongLos, maintenanceLos, recentWrongStems };
+  return { totalAnswered, totalAssessed, loStats, weakLos, strongLos, maintenanceLos, recentWrongStems };
 }
 
 // Build the prompt fragment that tells the model how to bias question generation.
 // Returns an empty string for balanced mode (or when there's no useful signal yet).
 export function buildPracticeDirective(mode: PracticeMode, ctx: PracticeModeContext): string {
   if (mode === 'balanced') return '';
-  if (ctx.weakLos.length === 0 && ctx.maintenanceLos.length === 0 && (mode !== 'targeted' || ctx.strongLos.length === 0)) {
+  if (ctx.weakLos.length === 0 && ctx.recentWrongStems.length===0 && ctx.maintenanceLos.length === 0 && (mode !== 'targeted' || ctx.strongLos.length === 0)) {
     return '';
   }
 
@@ -241,7 +247,7 @@ export function buildPracticeDirective(mode: PracticeMode, ctx: PracticeModeCont
   } else {
     lines.push('');
     lines.push('Mode: TARGETED — drill weak material, reduce well-practised material.');
-    lines.push('- Generate questions ONLY for the WEAK LOs and for any LO not yet attempted (untested LOs are fair game).');
+    lines.push('- Prioritize recent wrong or blank tasks, then the WEAK LOs and objectives not yet tested. The explicit primary-objective plan controls this set.');
     lines.push('- Do NOT generate questions for the STRONG LOs unless they appear in the MAINTENANCE list below.');
     lines.push('- Maintain blueprint section weights as best you can given the remaining LO pool.');
   }
@@ -262,14 +268,14 @@ export function buildPracticeDirective(mode: PracticeMode, ctx: PracticeModeCont
 
   if (ctx.maintenanceLos.length > 0) {
     lines.push('');
-    lines.push(`MAINTENANCE LOs (previously mastered, due for re-check — generate exactly ${ctx.maintenanceLos.length} question${ctx.maintenanceLos.length === 1 ? '' : 's'} covering these, one per LO):`);
+    lines.push(`RECHECK CANDIDATES (strong on this small sample, due for another look; use only those in the explicit objective plan):`);
     ctx.maintenanceLos.forEach(lo => lines.push(`  - ${lo}`));
-    lines.push('For each maintenance question, set metadata.isMaintenance = true. Use a NEW clinical scenario — do not paraphrase prior stems. The maintenance count is INCLUDED in the total question count, not added on top.');
+    lines.push('For each maintenance question, set metadata.isMaintenance = true. Use a NEW clinical scenario — do not paraphrase prior stems. The explicit planned objectives take precedence over this candidate list; do not add unplanned objectives or exceed the requested question count.');
   }
 
   if (ctx.recentWrongStems.length > 0) {
     lines.push('');
-    lines.push('RECENTLY MISSED stems (for inspiration only — do NOT reuse these stems verbatim; generate fresh scenarios on the same LOs):');
+    lines.push('RECENTLY MISSED OR LEFT BLANK stems (do NOT reuse these stems; test the same rule through a different scenario):');
     ctx.recentWrongStems.forEach((stem, i) => {
       lines.push(`  [${i + 1}] ${stem.replace(/\n/g, ' ')}`);
     });

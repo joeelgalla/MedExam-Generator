@@ -5,7 +5,7 @@ export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 export type Answer = 'A' | 'B' | 'C' | 'D';
 export interface Registry {
   id: string;
-  objectives: Record<string, { topicId: string }>;
+  objectives: Record<string, { topicId: string; text?: string; assessmentType?: 'knowledge' | 'skill' }>;
   topics: Record<string, { title: string; bucketId: string }>;
   buckets: Record<string, string>;
 }
@@ -78,9 +78,11 @@ export function parseExam(value: unknown): PracticeExam {
     return [key, { title: text(topic.title, 'Topic title', 250), bucketId }];
   }));
   const objectives = Object.fromEntries(entries(r.objectives, 'Objectives').map(([key, value]) => {
-    const topicId = id(object(value, 'Objective').topicId, 'Objective topic ID');
+    const entry=object(value, 'Objective');
+    const topicId = id(entry.topicId, 'Objective topic ID');
     if (!has(topics, topicId)) fail(`Unknown topic ${topicId}.`);
-    return [key, { topicId }];
+    if(entry.assessmentType!==undefined && !['knowledge','skill'].includes(entry.assessmentType))fail('Invalid objective assessment type.');
+    return [key, { topicId, ...(entry.text ? {text:text(entry.text,'Objective text',5000)}:{}), ...(entry.assessmentType ? {assessmentType:entry.assessmentType as 'knowledge'|'skill'}:{}) }];
   }));
   const registry = { id: id(r.id, 'Registry ID'), buckets, topics, objectives };
   const questions: PracticeQuestion[] = array(v.questions, 'Questions', 1, 200).map((value, index) => {
@@ -101,7 +103,8 @@ export function parseExam(value: unknown): PracticeExam {
       return { title: text(source.title, 'Source title', 500),
         ...(source.page !== undefined ? { page: integer(source.page, 'Source page', 1, 100000) } : {}),
         ...(source.url ? { url: source.url as string } : {}),
-        ...(source.accessed ? { accessed: text(source.accessed, 'Source date', 40) } : {}) };
+        ...(source.accessed ? { accessed: text(source.accessed, 'Source date', 40) } : {}),
+        ...(source.quote !== undefined ? { quote:text(source.quote,'Source passage',4000) } : {}), ...(source.kind==='supplement'?{kind:'supplement' as const}:{}) };
     });
     return {
       id: integer(q.id, 'Question ID', 1, 1000000),
@@ -115,7 +118,8 @@ export function parseExam(value: unknown): PracticeExam {
         itemId: id(m.itemId, 'Item ID'), objectiveIds, topicId, bucketId,
         ...(m.caseId ? { caseId: id(m.caseId, 'Case ID') } : {}),
         ...(m.sourceDocument ? { sourceDocument: text(m.sourceDocument, 'Source document', 500) } : {}),
-        ...(sources ? { sources } : {}) },
+        ...(sources ? { sources } : {}),
+        ...(m.coverageNote ? {coverageNote:text(m.coverageNote,'Objective task',2000)}:{}), ...(m.rechecksItemId ? {rechecksItemId:text(m.rechecksItemId,'Recheck item ID',250)}:{}) },
     };
   });
   unique(questions.map(q => q.id), 'Questions');

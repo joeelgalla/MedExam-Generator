@@ -1,8 +1,10 @@
 
 import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode, ChatMessage } from '../types';
 import type { Project } from '../types';
-import { buildGenerationPrompt, MAX_BUILTIN_QUESTIONS } from './generationPrompt';
+import { buildGenerationPrompt, generationSources, MAX_BUILTIN_QUESTIONS } from './generationPrompt';
 import { validateGeneratedQuestions } from './projectWorkflow';
+import { verifyGenerationEvidence, verifyGeneratedSet } from './generationEvidence';
+import {generationObjectivePlan,plannedRechecks,studyItemKey} from './objectiveCoverage';
 import { supabase } from '../lib/supabase';
 async function aiHeaders() {
   const {data:{session}}=await supabase.auth.getSession();
@@ -100,19 +102,18 @@ export const sendChatMessage = async (
 };
 
 // Both built-in generation and the external packet use the same project recipe.
-export const generateExam = async (project: Project): Promise<ExamQuestion[]> => {
+export const generateExam = async (project: Project): Promise<{questions:ExamQuestion[];excluded:number;missingObjectives:string[];checkUnavailable:number}> => {
   if (project.activeExam.questionCount > MAX_BUILTIN_QUESTIONS) throw new Error('Built-in generation supports up to 20 questions per set. For a full mock, download the AI packet and import the returned exam.');
   const prompt=buildGenerationPrompt(project);
-  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty,hasObjectiveRegistry:!!project.registry})});
+  const plan=generationObjectivePlan(project,project.activeExam.selectedSectionIds||project.blueprint.map(s=>s.id),project.activeExam.questionCount);
+  const recheckTasks=Object.fromEntries(plannedRechecks(project,plan).map(q=>[studyItemKey(q),{task:q.metadata.coverageNote||q.leadIn,vignette:q.vignette,leadIn:q.leadIn}]));
+  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty,questionCount:project.activeExam.questionCount,files:generationSources(project),objectiveWordings:Object.fromEntries(Object.entries(project.registry?.objectives||{}).map(([id,o])=>[id,o.text||id])),recheckTasks,requiredRechecks:Object.fromEntries(plannedRechecks(project,plan).map(q=>[q.metadata.objectiveIds![0],studyItemKey(q)])),hasObjectiveRegistry:!!project.registry})});
   const data=await response.json();
   if(!response.ok) throw Object.assign(new Error(data.error || 'Generation failed. Your existing exam is unchanged.'),{code:data.code,status:response.status});
-  const questions=validateGeneratedQuestions(data.exam,project.registry);
-  // Preserve a valid shorter set without an automatic billable retry. The UI
-  // reports the actual count; malformed questions still reject the whole set.
-  if(questions.length>project.activeExam.questionCount) throw new Error(`The AI returned more questions than requested. The set was not installed.`);
-  const normalize=(q:ExamQuestion)=>`${q.vignette} ${q.leadIn}`.toLowerCase().replace(/[^a-z0-9]/g,'');
-  const previous=new Set([...(project.savedExams || []).flatMap(e=>e.questions),...project.examHistory.flatMap(a=>a.questions),...(project.styleExamples || [])].map(normalize));
-  const seen=new Set<string>();
-  for(const q of questions){const key=normalize(q);if(previous.has(key)||seen.has(key))throw new Error('The AI repeated an existing or example question. The set was not installed; try another set.');seen.add(key);}
-  return questions;
+  const checkedQuestions=validateGeneratedQuestions(data.exam,project.registry);
+  verifyGenerationEvidence(checkedQuestions,[...project.learningObjectivesFiles,...project.blueprint.flatMap(s=>s.files)]);
+  const report=data.qualityReport;
+  if(!report || report.retained!==checkedQuestions.length || !Array.isArray(report.excluded))throw new Error('Question checking did not return a complete report. The set was not saved.');
+  const {questions}=verifyGeneratedSet(checkedQuestions,project,true);
+  return {questions,excluded:project.activeExam.questionCount-questions.length,missingObjectives:plan.filter(id=>!questions.some(q=>q.metadata.objectiveIds?.[0]===id)),checkUnavailable:report.excluded.filter((x:{checkUnavailable?:boolean})=>x.checkUnavailable).length};
 };

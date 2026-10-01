@@ -12,7 +12,7 @@ const int = (v: any, label: string, min: number, max: number): number => { if (!
 function parseSource(s: any) {
   obj(s,'Source');
   if (s.url && (!/^https:\/\//.test(s.url) || !URL.canParse(s.url))) throw new Error('Source URLs must be valid HTTPS links.');
-  return { title:str(s.title,'Source title',500), ...(s.page !== undefined ? {page:int(s.page,'Source page',1,100000)}:{}), ...(s.url ? {url:str(s.url,'Source URL',2000)}:{}), ...(s.accessed ? {accessed:str(s.accessed,'Source date',40)}:{}) };
+  return { title:str(s.title,'Source title',500), ...(s.page !== undefined ? {page:int(s.page,'Source page',1,100000)}:{}), ...(s.url ? {url:str(s.url,'Source URL',2000)}:{}), ...(s.accessed ? {accessed:str(s.accessed,'Source date',40)}:{}), ...(s.quote !== undefined ? {quote:str(s.quote,'Source passage',4000)}:{}), ...(s.kind==='supplement'?{kind:'supplement' as const}:{}) };
 }
 // Model citations are optional hints. A malformed hint must not discard a paid
 // response; question content, answer keys and objective mappings remain strict.
@@ -48,7 +48,8 @@ export function parseRegistry(value: unknown): ObjectiveRegistry {
   }));
   const objectives = Object.fromEntries(Object.entries(obj(r.objectives,'Objectives')).map(([k,v]: [string,any]) => {
     obj(v,'Objective'); if (!own(topics,v.topicId)) throw new Error(`Unknown topic ${v.topicId}.`);
-    return [ident(k,'Objective ID'), { topicId: v.topicId, ...(v.text ? { text: str(v.text,'Objective text',5000) } : {}) }];
+    if(v.assessmentType!==undefined && !['knowledge','skill'].includes(v.assessmentType)) throw new Error('Invalid objective assessment type.');
+    return [ident(k,'Objective ID'), { topicId: v.topicId, ...(v.text ? { text: str(v.text,'Objective text',5000) } : {}), ...(v.assessmentType ? {assessmentType:v.assessmentType as 'knowledge'|'skill'}:{}) }];
   }));
   if (!Object.keys(objectives).length || Object.keys(objectives).length > 2000) throw new Error('Registry needs 1–2000 objectives.');
   return { id: ident(r.id,'Registry ID'), buckets, topics, objectives };
@@ -75,7 +76,7 @@ export function validateQuestions(value: unknown, registry?: ObjectiveRegistry, 
     if (itemId && items.has(itemId)) throw new Error(`Duplicate item ID ${itemId}.`); if (itemId) items.add(itemId);
     const sources = m.sources === undefined ? undefined : list(m.sources,'Sources',20).map(parseSource);
     return { id, vignette: typeof q.vignette === 'string' && !q.vignette.trim() ? '' : str(q.vignette,'Vignette'), leadIn:str(q.leadIn,'Lead-in',3000), options, correctAnswer:q.correctAnswer, explanation:str(q.explanation,'Explanation'),
-      metadata: { losTested:list(m.losTested,'Learning objectives',30).map(x=>str(x,'Objective',5000)), cluster:str(m.cluster,'Cluster',250), cognitiveLevel:m.cognitiveLevel, subtype:str(m.subtype,'Subtype',80) as any, week: m.week === undefined ? 0 : int(m.week,'Week',0,1000), ...(objectiveIds ? {objectiveIds}:{}), ...(topicId ? {topicId}:{}), ...(bucketId ? {bucketId}:{}), ...(itemId ? {itemId}:{}), ...(m.caseId ? {caseId:ident(m.caseId,'Case ID')}:{}), ...(m.sourceDocument ? {sourceDocument:str(m.sourceDocument,'Source document',500)}:{}), ...(sources ? {sources}:{}), ...(m.isMaintenance === true ? {isMaintenance:true}:{}) } };
+      metadata: { losTested:list(m.losTested,'Learning objectives',30).map(x=>str(x,'Objective',5000)), cluster:str(m.cluster,'Cluster',250), cognitiveLevel:m.cognitiveLevel, subtype:str(m.subtype,'Subtype',80) as any, week: m.week === undefined ? 0 : int(m.week,'Week',0,1000), ...(objectiveIds ? {objectiveIds}:{}), ...(topicId ? {topicId}:{}), ...(bucketId ? {bucketId}:{}), ...(itemId ? {itemId}:{}), ...(m.caseId ? {caseId:ident(m.caseId,'Case ID')}:{}), ...(m.sourceDocument ? {sourceDocument:str(m.sourceDocument,'Source document',500)}:{}), ...(sources ? {sources}:{}), ...(m.coverageNote ? {coverageNote:str(m.coverageNote,'Objective task',2000)}:{}), ...(m.rechecksItemId ? {rechecksItemId:ident(m.rechecksItemId,'Recheck item ID')}:{}), ...(m.isMaintenance === true ? {isMaintenance:true}:{}) } };
   });
 }
 export function parseProjectExam(value: any, registry?: ObjectiveRegistry, allowLegacy=false): SavedExam {
@@ -145,7 +146,7 @@ export function projectShare(p: Project, includeSources=true, includeExams=true)
 export function importProject(value: any, userId: string, mode:'local'|'cloud', cloudUploadApproved=false): Project {
   const backup=value?.format==='medexam-project-backup'; const v=obj(backup?value.project:value,'Project');
   const registry=v.registry?parseRegistry(v.registry):undefined;
-  const file=(f:any)=>{obj(f,'Source file');return {id:ident(f.id,'File ID'),name:str(f.name,'File name',500),type:['pdf','docx','txt','xlsx','pptx','image'].includes(f.type)?f.type:'txt',content:typeof f.content==='string'?f.content.replace(/\0/g,''):'',size:Number(f.size)||0,...(f.topicIds?{topicIds:list(f.topicIds,'File topics').map(x=>ident(x,'Topic ID'))}:{})};};
+  const file=(f:any)=>{obj(f,'Source file');return {id:ident(f.id,'File ID'),name:str(f.name,'File name',500),type:['pdf','docx','txt','xlsx','pptx','image'].includes(f.type)?f.type:'txt',content:typeof f.content==='string'?f.content.replace(/\0/g,''):'',size:Number(f.size)||0,...(f.kind==='supplement'?{kind:'supplement' as const}:{}),...(f.topicIds?{topicIds:list(f.topicIds,'File topics').map(x=>ident(x,'Topic ID'))}:{})};};
   if(v.storageMode==='local' && mode==='cloud' && !cloudUploadApproved) throw new Error('Confirm saving this device project to your account before uploading its material.');
   const project:Project={id:crypto.randomUUID(),userId,name:str(v.name,'Project name',250),description:typeof v.description==='string'?v.description:'',questionWritingInstructions:typeof v.questionWritingInstructions==='string'?v.questionWritingInstructions:'',styleExamples:v.styleExamples?.length?validateQuestions(v.styleExamples,registry):[],registry,referenceTotalQuestions:int(v.referenceTotalQuestions || 40,'Reference count',1,1000),learningObjectivesFiles:list(v.learningObjectivesFiles || [],'Objective files').map(file),blueprint:list(v.blueprint,'Blueprint').map(s=>({id:ident(s.id,'Section ID'),title:str(s.title,'Section title',250),description:typeof s.description==='string'?s.description:'',questionCount:String(s.questionCount || '1'),files:list(s.files || [],'Section files').map(file)})),savedExams:list(v.savedExams || [],'Saved exams',200).map(e=>parseProjectExam(e,registry,!e.registry)),storageMode:mode,allowOnlineAI:mode==='cloud',lastModified:new Date().toISOString(),examHistory:[],activeExam:emptyExam()};
   if(new Set(project.blueprint.map(x=>x.id)).size!==project.blueprint.length) throw new Error('Duplicate section IDs.');

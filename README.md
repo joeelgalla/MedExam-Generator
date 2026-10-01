@@ -17,6 +17,11 @@ When another browser tab controls a project, choose **Use this tab** to hand ove
 
 Shared files can be imported into your account after confirming the cloud upload. For an existing device project, use **Sign in to save to account**, then **Save to account**. This preserves its sources, exams, answers, flags and timer, keeps the original device copy as a backup, and opens the saved account project. Retrying uses the same account-scoped ID. Account storage and Gemini permission are separate; transferring a device project does not turn Gemini on. Keep held-out exam recalls out of project source files and examples.
 
+
+Generation plans knowledge objectives from the project registry, prioritizing missed or blank submitted answers and tasks not yet assessed. **Progress → Practise gaps and recent misses** opens this mode directly. Each set uses up to six topics with complete chapters, rotating through remaining topics over later sets. The coverage view includes objectives with no question yet and separately identifies performance skills; one correct item is not whole-objective mastery.
+
+Before a generated set is saved, a separate Pro solve receives unlabelled choices and the study text, without the writer’s answer or explanation. Exact source passages, mapped objectives, criteria and distractors are checked; passing items can be retained when others fail. Excluded tasks remain gaps, and there are no automatic paid retries. Feedback and quoted passages are available after submission and in past-question review. This is an AI check against uploaded text, not clinical certification or a guarantee of real-exam difficulty. Imported external exams retain their import validation; they do not automatically receive this provider check.
+
 ## Data and compatibility
 
 - Old cloud projects and free-text objectives remain supported. New optional metadata includes `objectiveIds`, `topicId`, `bucketId`, `itemId` and `caseId` inside existing JSONB data; no database migration is required.
