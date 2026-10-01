@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mergeProjectCopies} from '../services/projectMerge.ts';
-import {importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam} from '../services/projectWorkflow.ts';
+import {importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam,projectShare} from '../services/projectWorkflow.ts';
 import {fixture} from './fixtures.ts';
 const base=()=>importProject({name:'Cross-device synthetic',blueprint:[{id:'basics',title:'Foundations',questionCount:'3',files:[]}],learningObjectivesFiles:[],referenceTotalQuestions:3},'same-owner','cloud');
 function complete(p:ReturnType<typeof base>,id:string){const e=parseProjectExam({...fixture(),examId:id});const next=beginProjectExam(addExam(p,e),e,1000);next.activeExam.userAnswers={1:'B'};return submitProjectExam(next,2000);}
@@ -67,4 +67,27 @@ test('a newer settings-only copy cannot discard an older unfinished exam',()=>{
  assert.equal(mergeProjectCopies(idle,running).activeExam.attemptId,running.activeExam.attemptId);
  const aside=structuredClone(idle);aside.archivedExams=[running.activeExam];
  assert.equal(mergeProjectCopies(running,aside).activeExam.questions.length,0);assert.equal(mergeProjectCopies(running,aside).archivedExams?.length,1);
+});
+
+
+test('an answer save from an older tab retains repaired remote instructions and exam references',()=>{
+ const baseline=base(),local=structuredClone(baseline),remote=structuredClone(baseline);
+ local.lastModified='2026-10-01T23:00:00Z';remote.lastModified='2026-10-01T22:00:00Z';
+ remote.questionWritingInstructions='Use actual exam task demands';remote.examReferenceFiles=[{id:'synthetic',type:'txt',size:100,name:'Synthetic example',content:'A synthetic scenario',topicIds:['one']}];remote.sourcePolicy='course-first';
+ const merged=mergeProjectCopies(local,remote,baseline);
+ assert.equal(merged.questionWritingInstructions,remote.questionWritingInstructions);
+ assert.deepEqual(merged.examReferenceFiles,remote.examReferenceFiles);
+ assert.equal(merged.sourcePolicy,'course-first');
+});
+
+
+test('withdrawn banks stay withdrawn after stale sync, retain attempts and are omitted from friend shares',()=>{
+ const old=complete(base(),'withdrawn-bank'),revised=structuredClone(old);
+ revised.savedExams![0]={...revised.savedExams![0],contentRevision:2,retired:true};
+ old.lastModified='2026-10-01T23:00:00Z';revised.lastModified='2026-10-01T22:00:00Z';
+ const merged=mergeProjectCopies(old,revised);
+ assert.equal(merged.savedExams![0].retired,true);assert.deepEqual(merged.examHistory,old.examHistory);
+ assert.equal(projectShare(merged).savedExams.length,0);
+ const restored=importProject({format:'medexam-project-backup',project:merged},'same-owner','local');
+ assert.equal(restored.savedExams![0].retired,true);assert.equal(restored.examHistory.length,1);
 });

@@ -1,7 +1,7 @@
 
 import { UploadedFile, ExamQuestion, DifficultyLevel, BlueprintSection, ExamAttempt, PracticeMode, ChatMessage } from '../types';
 import type { Project } from '../types';
-import { buildGenerationPrompt, generationSources, MAX_BUILTIN_QUESTIONS } from './generationPrompt';
+import { buildGenerationPrompt, generationSources, generationExamples, MAX_BUILTIN_QUESTIONS } from './generationPrompt';
 import { validateGeneratedQuestions } from './projectWorkflow';
 import { verifyGenerationEvidence, verifyGeneratedSet } from './generationEvidence';
 import {generationObjectivePlan,plannedRechecks,studyItemKey} from './objectiveCoverage';
@@ -107,11 +107,11 @@ export const generateExam = async (project: Project): Promise<{questions:ExamQue
   const prompt=buildGenerationPrompt(project);
   const plan=generationObjectivePlan(project,project.activeExam.selectedSectionIds||project.blueprint.map(s=>s.id),project.activeExam.questionCount);
   const recheckTasks=Object.fromEntries(plannedRechecks(project,plan).map(q=>[studyItemKey(q),{task:q.metadata.coverageNote||q.leadIn,vignette:q.vignette,leadIn:q.leadIn}]));
-  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty,questionCount:project.activeExam.questionCount,files:generationSources(project),objectiveWordings:Object.fromEntries(Object.entries(project.registry?.objectives||{}).map(([id,o])=>[id,o.text||id])),recheckTasks,requiredRechecks:Object.fromEntries(plannedRechecks(project,plan).map(q=>[q.metadata.objectiveIds![0],studyItemKey(q)])),hasObjectiveRegistry:!!project.registry})});
+  const response=await fetch('/api/generate',{method:'POST',headers:await aiHeaders(),body:JSON.stringify({prompt,difficulty:project.activeExam.difficulty,questionCount:project.activeExam.questionCount,files:generationSources(project),examReferences:generationExamples(project,plan),objectiveWordings:Object.fromEntries(Object.entries(project.registry?.objectives||{}).map(([id,o])=>[id,o.text||id])),recheckTasks,requiredRechecks:Object.fromEntries(plannedRechecks(project,plan).map(q=>[q.metadata.objectiveIds![0],studyItemKey(q)])),hasObjectiveRegistry:!!project.registry})});
   const data=await response.json();
   if(!response.ok) throw Object.assign(new Error(data.error || 'Generation failed. Your existing exam is unchanged.'),{code:data.code,status:response.status});
   const checkedQuestions=validateGeneratedQuestions(data.exam,project.registry);
-  verifyGenerationEvidence(checkedQuestions,[...project.learningObjectivesFiles,...project.blueprint.flatMap(s=>s.files)]);
+  verifyGenerationEvidence(checkedQuestions,generationSources(project));
   const report=data.qualityReport;
   if(!report || report.retained!==checkedQuestions.length || !Array.isArray(report.excluded))throw new Error('Question checking did not return a complete report. The set was not saved.');
   const {questions}=verifyGeneratedSet(checkedQuestions,project,true);

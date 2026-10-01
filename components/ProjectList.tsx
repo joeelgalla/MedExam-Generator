@@ -127,7 +127,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
                     <FolderOpen className="w-6 h-6 text-blue-600" />
                   </div>
                   <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200">
-                      {(project.savedExams||[]).length} exams
+                      {(project.savedExams||[]).filter(e=>!e.retired).length} exams
                   </span>
                 </div>
                 

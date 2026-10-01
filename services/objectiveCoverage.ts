@@ -65,8 +65,8 @@ export function objectiveCoverage(registry: ObjectiveRegistry, questions: ExamQu
 // Keep the selected buckets broad; give recent misses a small recheck allocation even below the weak-LO sample threshold.
 export function generationObjectivePlan(project: Project, bucketIds: string[], count: number): string[] {
   if(!project.registry) return [];
-  const rows=objectiveCoverage(project.registry,(project.savedExams || []).flatMap(e=>e.questions),project.examHistory)
-    .filter(r=>bucketIds.includes(r.bucketId) && !r.skill);
+  const rows=objectiveCoverage(project.registry,(project.savedExams || []).filter(e=>!e.retired).flatMap(e=>e.questions),project.examHistory)
+    .filter(r=>bucketIds.includes(r.bucketId));
   const picked: string[]=[];
   // A short set uses complete chapters from at most six topics; rotate through other topics in later sets.
   const topics=new Set<string>();

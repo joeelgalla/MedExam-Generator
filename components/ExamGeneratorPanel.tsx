@@ -18,7 +18,7 @@ export default function ExamGeneratorPanel({project,onGenerate,onUpdate,onBack,o
   const configured={...project,activeExam:{...project.activeExam,questionCount:count,durationMinutes:duration,difficulty,practiceMode:mode,selectedSectionIds:ids}};
   const unlocks=computeUnlocks(project.examHistory);
   const plan=generationObjectivePlan(configured,ids,count);
-  const coverage=project.registry?objectiveCoverage(project.registry,(project.savedExams||[]).flatMap(e=>e.questions),project.examHistory):[];
+  const coverage=project.registry?objectiveCoverage(project.registry,(project.savedExams||[]).filter(e=>!e.retired).flatMap(e=>e.questions),project.examHistory):[];
   const untested=plan.filter(id=>coverage.find(r=>r.id===id)?.assessed===0).length;
   const active=project.activeExam.status==='active'&&project.activeExam.questions.length>0;
   const hasKnowledge=!project.registry||plan.length>0;

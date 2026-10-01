@@ -11,7 +11,7 @@ import {validateGeneratedQuestions} from '../services/projectWorkflow.js';
 
 // Older open tabs send the complete source-marked prompt rather than a files array.
 export function promptSources(prompt:string) {
-  return [...prompt.matchAll(/--- (?:FILE \([^\n]+\): ([^\n]+)|START OF LEARNING OBJECTIVE FILE: ([^\n]+)) ---\n([\s\S]*?)\n--- END (?:FILE|OF LEARNING OBJECTIVE FILE) ---/g)]
+  return [...prompt.matchAll(/--- (?:FILE(?: \([^\n]+\))?: ([^\n]+)|START OF LEARNING OBJECTIVE FILE: ([^\n]+)) ---\n([\s\S]*?)\n--- END (?:FILE|OF LEARNING OBJECTIVE FILE) ---/g)]
     .map(m=>({name:m[1]||m[2],content:m[3]}));
 }
 
@@ -31,6 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startedAt=Date.now();
   try {
     const { prompt, difficulty, hasObjectiveRegistry, objectiveWordings } = req.body;
+    const examReferences=req.body.examReferences||[];
+    if(!Array.isArray(examReferences)||examReferences.length>200||examReferences.some((f:any)=>typeof f?.name!=='string'||typeof f?.content!=='string')||JSON.stringify(examReferences).length>MAX_CONTEXT_CHARS)return res.status(400).json({error:'Invalid exam reference files.'});
 
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > MAX_CONTEXT_CHARS) {
       return res.status(400).json({ error: `Provide a prompt of 1–${MAX_CONTEXT_CHARS.toLocaleString('en-US')} characters; select fewer sections if necessary.` });
@@ -132,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (parsed.exam && Array.isArray(parsed.exam)) {
         if(!parsed.exam.length||parsed.exam.length>count)return res.status(502).json({error:'The draft did not match the requested size. Your existing exams are unchanged.',code:'invalid_draft'});
         const draft=validateGeneratedQuestions(parsed.exam);
-        const result=await verifyDraft(ai,model,draft,files,difficulty,objectiveWordings,req.body.recheckTasks,req.body.requiredRechecks,startedAt+290000);
+        const result=await verifyDraft(ai,model,draft,files,difficulty,objectiveWordings,req.body.recheckTasks,req.body.requiredRechecks,startedAt+290000,examReferences);
         if(!result.exam.length)return res.status(502).json({error:'No draft questions passed source and answer checking. Your existing exams are unchanged. Select more relevant material or a smaller set.',code:'quality_check'});
         return res.status(200).json({exam:result.exam,qualityReport:{draft:parsed.exam.length,retained:result.exam.length,excluded:result.excluded}});
       }
