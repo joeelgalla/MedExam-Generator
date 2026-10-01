@@ -1,3 +1,11 @@
+## 2026-10-01 - Objective planning and checked generation
+
+Blanks in submitted exams now count as misses throughout targeting and review. Added primary-objective coverage including absent questions and performance skills, one-click gaps/misses practice, distinct-item strength thresholds, and stable recheck chains that target a missed rule without clearing it on a different fact. Structured plans rotate across at most six complete source topics; legacy free-text projects retain generation/import and feedback.
+
+Generation now includes a separate source-based Pro solve without the writer key or rationale. Choices and feedback bind by exact text before code balances answer letters. Clinical criteria/source passages, objective fit and planned rechecks are checked; per-item exclusions retain accepted questions and leave gaps visible. Exact quotations use normal/recovered PDF page markers, filenames are enum constrained, and unsupported/incomplete output is not saved. Writer and checking calls have explicit deadlines within Fluid 300s; no automatic paid retry. Private curriculum and clinical banks remain outside git.
+
+Validation: 83 automated tests passed, TypeScript and production build passed, and Chrome synthetic blank/coverage/targeting workflow passed at desktop and 390px. The existing Fable partner closed five release blockers; the subsequent fixes require criteria checks, label supplement evidence, and handle thinking-only output exhaustion. Provider control checks accepted a supported task and rejected failed drafts, but rejection was partly quotation/polished-feedback gating, not proof of independent medical correctness. The live handler attempt used a disposable auth stub and an artificially lowered test output cap; it truncated before checking. No successful authenticated production 20-item write/check/save is claimed. Deployment and private project revision receipts belong to the Clerkship workspace.
+
 # Changes
 
 Running log of non-trivial changes to MedExam-Generator. Newest first.

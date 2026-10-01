@@ -6,6 +6,7 @@ export interface UploadedFile {
   content: string;
   size: number;
   topicIds?: string[];
+  kind?: 'supplement';
 }
 
 export interface BlueprintSection {
@@ -58,7 +59,9 @@ export interface QuestionMetadata {
   bucketId?: string;
   itemId?: string;
   caseId?: string;
-  sources?: Array<{ title: string; page?: number; url?: string; accessed?: string }>;
+  sources?: Array<{ title: string; page?: number; url?: string; accessed?: string; quote?: string; kind?: 'supplement' }>;
+  coverageNote?: string; // The specific written task sampled, not whole-objective mastery.
+  rechecksItemId?: string; // A new case explicitly retesting a previously missed task.
 }
 
 export interface ExamQuestion {
@@ -106,7 +109,7 @@ export interface ActiveExamState {
 
 export interface ObjectiveRegistry {
   id: string;
-  objectives: Record<string, { topicId: string; text?: string }>;
+  objectives: Record<string, { topicId: string; text?: string; assessmentType?: 'knowledge' | 'skill' }>;
   topics: Record<string, { title: string; bucketId: string }>;
   buckets: Record<string, string>;
 }

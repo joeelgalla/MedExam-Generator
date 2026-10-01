@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { ExamQuestion, ChatMessage } from '../types';
 import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Flag, Highlighter, RefreshCw } from 'lucide-react';
 import QuestionTutorPanel from './QuestionTutorPanel';
+import SourcePassages from './SourcePassages';
 
 interface QuestionCardProps {
   question: ExamQuestion;
@@ -193,10 +194,12 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                 
                 <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 animate-fadeIn">
                     <h4 className="text-sm font-bold text-slate-900 mb-2">Explanation</h4>
-                    <p className="text-sm text-slate-700 leading-relaxed">
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
                     {question.explanation}
                     </p>
+                    <SourcePassages question={question}/>
                     <div className="mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
+                        {question.metadata.coverageNote && <p className="mb-2">Task sampled: {question.metadata.coverageNote}</p>}
                         <span>LOs Tested: {question.metadata.losTested.join(', ')}</span>
                         {question.metadata.objectiveIds?.length && <p className="mt-1">Objective IDs: {question.metadata.objectiveIds.join(', ')}</p>}
                         {question.metadata.sources?.map((s,i)=><p className="mt-1" key={i}>{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.title}</a>:s.title}{s.page?` · p. ${s.page}`:''}</p>)}

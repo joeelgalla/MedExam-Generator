@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
+import {fixture} from './fixtures.ts';
 
 test('production generation uses the replacement model and parses a mocked SDK response', async () => {
   const savedEnv = { ...process.env }, originalFetch = globalThis.fetch, originalInfo = console.info;
@@ -12,12 +13,14 @@ test('production generation uses the replacement model and parses a mocked SDK r
   process.env.AI_ALLOWED_USER_IDS='synthetic-user';
   delete process.env.DISABLE_AI; delete process.env.GEMINI_QUESTION_MODEL;
   const requests: { url: string; body: any }[] = [];
-  const exam = [{ id: 1, vignette: 'Synthetic transport fixture' }];
+  const exam = fixture().questions.slice(0,1);
+  const quote='Adding red and blue counters gives the total number of counters.';
+  const checks=exam.map(q=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,difficulty:'appropriate',reasoning:'Add both groups of counters; the total is three.',optionFeedback:Object.entries(q.options).map(([l,n])=>({optionText:n,reason:l==='B'?'This includes all counters.':'This miscounts the counters.'})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:'Synthetic fixture',quote}]}));
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init);
     if(request.url.includes('/auth/v1/user')) return new Response(JSON.stringify({id:'synthetic-user',is_anonymous:false}),{headers:{'content-type':'application/json'}});
-    requests.push({ url: request.url, body: JSON.parse(await request.text()) });
-    return new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify({ exam }) }] }, finishReason: 'STOP' }], usageMetadata:{promptTokenCount:100,cachedContentTokenCount:20,candidatesTokenCount:30,thoughtsTokenCount:40,totalTokenCount:170} }), { headers: { 'content-type': 'application/json' } });
+    const payload=JSON.parse(await request.text());requests.push({ url: request.url, body:payload });
+    return new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(payload.generationConfig.responseSchema.properties.checks?{checks}:{exam}) }] }, finishReason: 'STOP' }], usageMetadata:{promptTokenCount:100,cachedContentTokenCount:20,candidatesTokenCount:30,thoughtsTokenCount:40,totalTokenCount:170} }), { headers: { 'content-type': 'application/json' } });
   };
   try {
     const bundle = await build({ entryPoints: ['api/generate.ts'], bundle: true, platform: 'node', format: 'cjs', write: false, packages: 'external' });
@@ -27,9 +30,10 @@ test('production generation uses the replacement model and parses a mocked SDK r
       if (difficulty === 'hard') process.env.GEMINI_QUESTION_MODEL = ` ${model} `;
       let status = 0, body: any;
       const res = { status(n: number) { status = n; return this; }, json(v: unknown) { body = v; return this; } };
-      await module.exports.default({ method: 'POST', headers:{authorization:'Bearer synthetic-token'}, body: { prompt: 'Synthetic transport check', difficulty, hasObjectiveRegistry:difficulty === 'standard' } }, res);
-      assert.equal(status, 200); assert.deepEqual(body, { exam });
-      const request = requests.at(-1)!;
+      await module.exports.default({ method: 'POST', headers:{authorization:'Bearer synthetic-token'}, body: { prompt: 'Synthetic transport check', difficulty, hasObjectiveRegistry:difficulty === 'standard',questionCount:1,files:[{name:'Synthetic fixture',content:'[Original handbook PDF page 1]\n'+quote}] } }, res);
+      assert.equal(status, 200); assert.equal(body.exam.length,1);assert.deepEqual(body.qualityReport,{draft:1,retained:1,excluded:[]});assert.equal(body.exam[0].options[body.exam[0].correctAnswer],'3');assert.equal(body.exam[0].metadata.sources[0].quote,quote);
+      const request = requests.at(-2)!;
+      const checker=requests.at(-1)!;assert.equal(checker.body.generationConfig.thinkingConfig.thinkingLevel,'MEDIUM');assert.ok(!checker.body.contents[0].parts[0].text.includes('correctAnswer'));assert.ok(!checker.body.contents[0].parts[0].text.includes('Add the 1 red counters'));
       assert.ok(request.url.includes(`/models/${model}:generateContent`));
       assert.equal(request.body.generationConfig.thinkingConfig.thinkingLevel, level);
       assert.equal(request.body.generationConfig.responseMimeType, 'application/json');
@@ -38,9 +42,20 @@ test('production generation uses the replacement model and parses a mocked SDK r
       const required=request.body.generationConfig.responseSchema.properties.exam.items.properties.metadata.required;
       for(const key of ['objectiveIds','topicId','bucketId']) assert.equal(required.includes(key),difficulty === 'standard',key);
       assert.deepEqual(request.body.generationConfig.responseSchema.required,['exam']);
-      assert.deepEqual(JSON.parse(usageLogs.at(-1)![1] as string),{model,promptTokens:100,cachedTokens:20,outputTokens:30,thinkingTokens:40,totalTokens:170});
+      assert.deepEqual(JSON.parse(usageLogs.filter(x=>x[0]==='Exam generation usage').at(-1)![1] as string),{model,promptTokens:100,cachedTokens:20,outputTokens:30,thinkingTokens:40,totalTokens:170});
     }
-    assert.equal(requests.length, 2); // All transport is stubbed; no paid API request occurs.
+    assert.equal(requests.length, 4); // All transport is stubbed; no paid API request occurs.
+    let truncatedCalls=0;
+    globalThis.fetch=async(input,init)=>{
+      const request=new Request(input,init);
+      if(request.url.includes('/auth/v1/user'))return new Response(JSON.stringify({id:'synthetic-user',is_anonymous:false}),{headers:{'content-type':'application/json'}});
+      truncatedCalls++;
+      return new Response(JSON.stringify({candidates:[{content:{role:'model',parts:[]},finishReason:'MAX_TOKENS'}]}),{headers:{'content-type':'application/json'}});
+    };
+    let truncatedStatus=0,truncatedBody:any;
+    const truncatedRes={status(n:number){truncatedStatus=n;return this;},json(v:unknown){truncatedBody=v;return this;}};
+    await module.exports.default({method:'POST',headers:{authorization:'Bearer synthetic-token'},body:{prompt:'Synthetic output-limit check',questionCount:1,files:[{name:'Synthetic fixture',content:quote}]}},truncatedRes);
+    assert.equal(truncatedStatus,502);assert.equal(truncatedBody.code,'output_limit');assert.equal(truncatedCalls,1);
   } finally {
     globalThis.fetch = originalFetch;
     console.info = originalInfo;

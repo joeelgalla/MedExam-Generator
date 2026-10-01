@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ExamQuestion, Project, BlueprintSection, ChatMessage } from './types';
 import QuestionCard from './components/QuestionCard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import ObjectiveCoveragePanel from './components/ObjectiveCoveragePanel';
 import ProjectList from './components/ProjectList';
 import ExamTimer from './components/ExamTimer';
 import FeedbackModal from './components/FeedbackModal';
@@ -300,12 +301,13 @@ function App() {
     const snapshot=configured||activeProject;
     try {
       await updateActiveProject(snapshot,true);
-      const questions=await generateExam(snapshot);
+      const generated=await generateExam(snapshot);
+      const questions=generated.questions;
       const examId=crypto.randomUUID();
       const uniqueQuestions=questions.map((q,i)=>({...q,metadata:{...q.metadata,itemId:`${examId}-${i+1}`}}));
-      const exam=parseProjectExam({examId,title:`Practice set ${(snapshot.savedExams?.length||0)+1} · ${questions.length} questions`,durationMinutes:snapshot.activeExam.durationMinutes || Math.ceil(questions.length*1.5),questions:uniqueQuestions},snapshot.registry);
+      const exam=parseProjectExam({examId,title:`Practice set ${(snapshot.savedExams?.length||0)+1} · ${questions.length} questions`,durationMinutes:snapshot.activeExam.durationMinutes || Math.ceil(questions.length*1.5),instructions:generated.excluded?`${generated.excluded} requested questions were not saved after source and answer checks.${generated.checkUnavailable?` Checking did not complete for ${generated.checkUnavailable} drafts.`:''} Planned objectives still without an accepted question: ${generated.missingObjectives.join(", ")||"see Progress"}. No automatic retry was made.`:undefined,questions:uniqueQuestions},snapshot.registry);
       await updateActiveProject(addExam(projectRef.current?.id===snapshot.id?projectRef.current:snapshot,exam),true);
-      setError('');setGenerationNotice(questions.length<snapshot.activeExam.questionCount?`Saved ${questions.length} valid questions of ${snapshot.activeExam.questionCount} requested. No retry was made. Choose Start when ready.`:`Saved ${questions.length} questions. Choose Start when ready.`);setActiveTab('overview');
+      setError('');setGenerationNotice(questions.length<snapshot.activeExam.questionCount?`Saved ${questions.length} of ${snapshot.activeExam.questionCount} requested questions after source and answer checks.${generated.checkUnavailable?` The checking service did not complete for ${generated.checkUnavailable} drafts.`:''} Unfilled objectives remain gaps; no retry was made. Choose Start when ready.`:`Saved ${questions.length} questions after source and answer checks. Choose Start when ready.`);setActiveTab('overview');
     } catch(e){const failure=e as Error & {code?:string};setError(failure.message);if(failure.code==='quota'){setAIAvailability({available:false,reason:failure.message});try{sessionStorage.setItem(`medexam-ai-quota-${currentUserId}`,failure.message);}catch{}}} finally{setLoading(false);}
   };
   const handleDeepDive = async (question: ExamQuestion): Promise<string> => {
@@ -707,6 +709,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
         {activeTab === 'analytics' && (
             <div className="animate-fadeIn print:hidden">
                 <h2 className="text-2xl font-bold text-slate-900 mb-6">Performance Analytics: {activeProject.name}</h2>
+                <ObjectiveCoveragePanel project={activeProject} onGenerate={()=>{void updateActiveProject({...activeProject,activeExam:{...activeProject.activeExam,practiceMode:'targeted',selectedSectionIds:undefined}});setActiveTab('generate');}}/>
                 <AnalyticsDashboard registry={activeProject.registry} history={examHistory} onDeepDive={handleDeepDive} onChatSend={handleChatSend} />
             </div>
         )}

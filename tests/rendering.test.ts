@@ -8,7 +8,7 @@ test('legacy cloud cards retain tutor controls; private cards hide hints and esc
     import React from 'react';
     import { renderToStaticMarkup } from 'react-dom/server';
     import QuestionCard from './components/QuestionCard';
-    const q = {id:1,vignette:'<img src=x onerror=alert(1)>',leadIn:'Choose an option',options:{A:'One',B:'Two',C:'Three',D:'Four'},correctAnswer:'A',explanation:'A synthetic explanation',metadata:{losTested:['Synthetic objective'],cluster:'Synthetic cluster',week:5,subtype:'diagnosis',cognitiveLevel:'1.2'}};
+    const q = {id:1,vignette:'<img src=x onerror=alert(1)>',leadIn:'Choose an option',options:{A:'One',B:'Two',C:'Three',D:'Four'},correctAnswer:'A',explanation:'A synthetic explanation',metadata:{losTested:['Synthetic objective'],cluster:'Synthetic cluster',week:5,subtype:'diagnosis',cognitiveLevel:'1.2',coverageNote:'Synthetic task sampled',sources:[{title:'Synthetic material',quote:'Synthetic proof <script>example</script>',page:1}]}};
     const props={question:q,index:0,selectedOption:null,isFlagged:false,onSelectOption:()=>{},onToggleFlag:()=>{},onDeepDive:async()=>'',onChatSend:async()=>''};
     export const cloud=renderToStaticMarkup(<QuestionCard {...props} isSubmitted />);
     export const active=renderToStaticMarkup(<QuestionCard {...props} isSubmitted={false} privatePractice />);
@@ -20,10 +20,12 @@ test('legacy cloud cards retain tutor controls; private cards hide hints and esc
   assert.match(cloud, /Find supporting passages/);
   assert.match(cloud, /Ask the AI Tutor/);
   assert.match(cloud, /Week/);
-  assert.doesNotMatch(active, /Synthetic cluster|Synthetic objective|A synthetic explanation|Find supporting passages/);
+  assert.doesNotMatch(active, /Synthetic cluster|Synthetic objective|A synthetic explanation|Find supporting passages|Synthetic proof|Synthetic task sampled/);
   assert.match(review, /A synthetic explanation/);
   assert.match(review, /Unanswered/);
   assert.doesNotMatch(review, /Find supporting passages|AI Tutor/);
+  assert.match(review,/Passage from the study material/);assert.match(review,/Synthetic task sampled/);
+  assert.doesNotMatch(review,/<script>example/);assert.match(review,/&lt;script&gt;example/);
   for (const html of [cloud, active, review]) {
     assert.doesNotMatch(html, /<img src=x/);
     assert.match(html, /&lt;img/);
