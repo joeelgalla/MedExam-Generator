@@ -21,18 +21,21 @@ function mergeBanks(remote:SavedExam[],local:SavedExam[]):SavedExam[] {
 }
 export function mergeProjectCopies(local:Project,remote:Project,baseline?:Project):Project {
  if(local.id!==remote.id || local.userId!==remote.userId)throw new Error('Project ownership mismatch.');
- const examHistory=union(remote.examHistory || [],local.examHistory || [],x=>x.id,'attempt');
+ const voidedAttemptIds=[...new Set([...(remote.voidedAttemptIds || []),...(local.voidedAttemptIds || [])])];
+ const voided=new Set(voidedAttemptIds);
+ const examHistory=union((remote.examHistory || []).filter(x=>!voided.has(x.id)),(local.examHistory || []).filter(x=>!voided.has(x.id)),x=>x.id,'attempt');
  const savedExams=mergeBanks(remote.savedExams || [],local.savedExams || []);
- const archivedExams=union(remote.archivedExams || [],local.archivedExams || [],x=>x.attemptId || canonical(x),'unfinished exam');
+ const archivedExams=union((remote.archivedExams || []).filter(x=>!voided.has(x.attemptId || '')),(local.archivedExams || []).filter(x=>!voided.has(x.attemptId || '')),x=>x.attemptId || canonical(x),'unfinished exam');
  const latest={...(local.lastModified>=remote.lastModified?local:remote)};
  // Studying in an older tab must not undo a newly repaired recipe or source map.
  for(const key of ['name','description','questionWritingInstructions','styleExamples','examReferenceFiles','sourcePolicy','registry','blueprint','referenceTotalQuestions','learningObjectivesFiles'] as const) {
   if(baseline&&canonical(local[key])===canonical(baseline[key]))(latest as any)[key]=remote[key];
  }
  const a=local.activeExam,b=remote.activeExam;
- const unfinished=(x:typeof a)=>x.status==='active'&&x.questions.length>0&&!examHistory.some(h=>h.id===x.attemptId);
+ const unfinished=(x:typeof a)=>x.status==='active'&&x.questions.length>0&&!voided.has(x.attemptId || '')&&!examHistory.some(h=>h.id===x.attemptId);
  if(unfinished(a)&&unfinished(b)&&a.attemptId!==b.attemptId)throw new Error('Two devices have different unfinished exams. Finish one, then retry sync; your device copy is preserved.');
  let activeExam=latest.activeExam;
+ if(voided.has(activeExam.attemptId || '')) activeExam=voided.has(a.attemptId || '')?b:a;
  // A newer settings-only edit cannot erase another device's running exam.
  // An explicit set-aside is preserved by its matching archived attempt.
  if(unfinished(a)!==unfinished(b)) {
@@ -59,5 +62,5 @@ export function mergeProjectCopies(local:Project,remote:Project,baseline?:Projec
  }
  const completed=examHistory.find(h=>h.id===activeExam.attemptId);
  if(completed) activeExam={...activeExam,status:'completed',questions:completed.questions,userAnswers:completed.answers,flaggedQuestions:completed.flaggedQuestions || []};
- return {...latest,examHistory,savedExams,archivedExams:archivedExams.filter(a=>a.attemptId!==activeExam.attemptId&&!examHistory.some(h=>h.id===a.attemptId)),activeExam};
+ return {...latest,examHistory,voidedAttemptIds,savedExams,archivedExams:archivedExams.filter(a=>a.attemptId!==activeExam.attemptId&&!examHistory.some(h=>h.id===a.attemptId)),activeExam};
 }

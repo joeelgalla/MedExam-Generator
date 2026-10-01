@@ -95,11 +95,6 @@ export default function PrivatePractice() {
     if (!state.active || blocked || !lockReady) return;
     const tick = () => {
       const time = Date.now(); setNow(time);
-      const current = stateRef.current.active;
-      if (current && time >= current.endsAt) {
-        setReviewId(current.id); setIndex(0); setFilter('all'); setConfirmSubmit(false);
-        commit(s => finishAttempt(s, time, 'time-expired'));
-      }
     };
     tick();
     const timer = window.setInterval(tick, 1000);
@@ -139,7 +134,6 @@ export default function PrivatePractice() {
   function toggleFlag(questionId: number) {
     commit(s => {
       if (!s.active) return s;
-      if (Date.now() >= s.active.endsAt) return finishAttempt(s, Date.now(), 'time-expired');
       const flags = s.active.flags.includes(questionId) ? s.active.flags.filter(id => id !== questionId) : [...s.active.flags, questionId];
       return { ...s, active: { ...s.active, flags } };
     });
@@ -209,8 +203,8 @@ export default function PrivatePractice() {
         <p className="mt-2 font-semibold">{pending.questions.length} questions · {pending.durationMinutes} minutes</p>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{pending.instructions}</p>
         {repeats > 0 && <p className="mt-3 text-sm text-amber-800">You have already completed {repeats} of these items. This will be a repeat attempt.</p>}
-        <p className="mt-3 text-sm text-slate-600">The timer starts below and keeps running if you leave. At zero, your answers are submitted automatically.</p>
-        <div className="mt-4 flex flex-wrap gap-3"><button className="practice-primary" disabled={disabled} onClick={start}>Start timed exam</button><button className="practice-button" onClick={() => openShare(pending)}>Share exam</button></div>
+        <p className="mt-3 text-sm text-slate-600">The timer is a pacing guide. Keep answering after it reaches zero; answers appear only when you finish the exam.</p>
+        <div className="mt-4 flex flex-wrap gap-3"><button className="practice-primary" disabled={disabled} onClick={start}>Start exam</button><button className="practice-button" onClick={() => openShare(pending)}>Share exam</button></div>
       </div>}
     </section>}
 
@@ -222,6 +216,7 @@ export default function PrivatePractice() {
           {state.active ? <div className="text-right"><p className={`text-3xl font-bold tabular-nums ${seconds < 300 ? 'text-red-700' : 'text-blue-800'}`} aria-label="Time remaining">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</p><p className="text-xs text-slate-500">remaining</p></div> : <div className="text-right"><p className="text-3xl font-bold text-blue-800">{stats!.correct}/{stats!.total}</p><p className="text-sm">{stats!.percent}% · {stats!.skipped} unanswered</p></div>}
         </div>
         {attempt.reason === 'time-expired' && <p className="mt-3 text-sm text-amber-800">Time expired. The answers saved by the deadline were submitted.</p>}
+        {state.active && seconds === 0 && <p className="mt-3 text-sm text-amber-800" role="status">Suggested time reached. Keep answering at your own pace; finish the exam when you are ready.</p>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="text-sm font-medium" htmlFor="question-filter">Show</label>
           <select id="question-filter" value={filter} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" onChange={e => { setFilter(e.target.value as typeof filter); setIndex(0); }}>

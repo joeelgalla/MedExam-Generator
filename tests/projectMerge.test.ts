@@ -4,6 +4,33 @@ import {mergeProjectCopies} from '../services/projectMerge.ts';
 import {importProject,parseProjectExam,addExam,beginProjectExam,submitProjectExam,projectShare} from '../services/projectWorkflow.ts';
 import {fixture} from './fixtures.ts';
 const base=()=>importProject({name:'Cross-device synthetic',blueprint:[{id:'basics',title:'Foundations',questionCount:'3',files:[]}],learningObjectivesFiles:[],referenceTotalQuestions:3},'same-owner','cloud');
+
+test('a withdrawn accidental submission cannot return or stop a recovered attempt after stale sync',()=>{
+ const e=parseProjectExam(fixture());
+ const running=beginProjectExam(addExam(base(),e),e,100000);
+ running.activeExam.userAnswers={1:'B'};running.activeExam.flaggedQuestions=[1];
+ const forced=submitProjectExam(running,160000), originalId=forced.examHistory[0].id;
+ const recovered=structuredClone(forced);
+ recovered.voidedAttemptIds=[originalId];recovered.examHistory=[];
+ recovered.activeExam={...recovered.activeExam,status:'active',attemptId:'reopened',recoveredFromAttemptId:originalId,startedAt:undefined,endsAt:undefined};
+ forced.lastModified='2026-10-01T23:59:00Z';recovered.lastModified='2026-10-01T23:50:00Z';
+ for(const stale of [forced,running]) for(const [a,b] of [[stale,recovered],[recovered,stale]]) {
+  const merged=mergeProjectCopies(a,b);
+  assert.equal(merged.examHistory.length,0);
+  assert.equal(merged.activeExam.attemptId,'reopened');
+  assert.equal(merged.activeExam.status,'active');
+  assert.deepEqual(merged.activeExam.userAnswers,{1:'B'});
+  assert.deepEqual(merged.activeExam.flaggedQuestions,[1]);
+  assert.deepEqual(merged.voidedAttemptIds,[originalId]);
+ }
+ const done=submitProjectExam(recovered,180000);
+ const merged=mergeProjectCopies(forced,done);
+ assert.equal(merged.examHistory.length,1);assert.equal(merged.examHistory[0].id,'reopened');
+ assert.equal(merged.activeExam.attemptId,'reopened');assert.equal(merged.activeExam.status,'completed');
+ const restored=importProject({format:'medexam-project-backup',project:recovered},'same-owner','local');
+ assert.deepEqual(restored.voidedAttemptIds,[originalId]);assert.equal(restored.activeExam.recoveredFromAttemptId,originalId);
+ assert.ok(!JSON.stringify(projectShare(recovered)).includes(originalId));
+});
 function complete(p:ReturnType<typeof base>,id:string){const e=parseProjectExam({...fixture(),examId:id});const next=beginProjectExam(addExam(p,e),e,1000);next.activeExam.userAnswers={1:'B'};return submitProjectExam(next,2000);}
 test('a later edit on a stale device preserves exams and attempts from both devices',()=>{
  const p=base(),a=complete(structuredClone(p),'exam-a'),b=complete(structuredClone(p),'exam-b');

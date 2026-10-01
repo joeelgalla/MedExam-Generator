@@ -7,9 +7,9 @@ Reusable study projects for medical rotations: keep learning objectives, topic r
 Open https://med-exam-generator.vercel.app/ and **sign in** to keep projects and progress in your account across devices. **On this device** is an optional mode that stays in one browser. The standalone player remains at `/practice.html`.
 
 1. Create a project or choose **Import project** for a friend's `.medexam` file. Each project uses the same **Exams**, **Progress** and **Materials** navigation.
-2. In **Materials**, add objectives and notes. In **Exams → Generate an exam**, choose length, time limit, difficulty and topics, then generate. Questions are saved first; the timer starts only when you choose **Start exam**.
+2. In **Materials**, add objectives and notes. In **Exams → Generate an exam**, choose length, suggested duration, difficulty and topics, then generate. Questions are saved first; the pacing timer starts only when you choose **Start exam**.
 3. **Import an exam** adds a JSON file or pasted JSON without replacing existing exams or progress. It complements the built-in generator.
-4. Take an exam, then review explanations. **Continue exam** preserves unfinished answers and the original deadline. **Progress** includes earlier exams, including projects created before the reusable exam library.
+4. Take an exam, then review explanations. **Continue exam** preserves unfinished answers. Reaching zero on the pacing timer does not submit, lock choices or reveal answers; press **Finish exam** when you are ready. **Progress** includes earlier exams, including projects created before the reusable exam library.
 5. Prefer your own AI? The optional section inside **Generate an exam** explains how to download the same instructions and materials, attach them to ChatGPT/Claude, and import the result. Built-in generation supports up to 20 questions per request; no automatic paid retries occur.
 6. **Share project** opens a download dialog with copyable instructions for your friend. They get an independent copy with fresh progress. **Download exam** shares a single question set. Private backups and recovery are in a separate collapsed section.
 

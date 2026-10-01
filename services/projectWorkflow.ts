@@ -110,18 +110,19 @@ export function addExam(project: Project, exam: SavedExam): Project {
 }
 export function beginProjectExam(project: Project, exam: SavedExam, now=Date.now()): Project {
   if (project.activeExam.questions.length && project.activeExam.status==='active') throw new Error('Finish the current exam before starting another.');
-  return {...project,activeExam:{...project.activeExam,questions:exam.questions,userAnswers:{},flaggedQuestions:[],status:'active',configOpen:false,examId:exam.examId,attemptId:crypto.randomUUID(),title:exam.title,durationMinutes:exam.durationMinutes,startedAt:now,endsAt:now+exam.durationMinutes*60000}};
+  return {...project,activeExam:{...project.activeExam,questions:exam.questions,userAnswers:{},flaggedQuestions:[],status:'active',configOpen:false,examId:exam.examId,attemptId:crypto.randomUUID(),title:exam.title,durationMinutes:exam.durationMinutes,startedAt:now,endsAt:now+exam.durationMinutes*60000,recoveredFromAttemptId:undefined}};
 }
 export function submitProjectExam(project: Project, now=Date.now()): Project {
   const a=project.activeExam;
   if (a.status==='completed' || !a.questions.length) return project;
   const id=a.attemptId || crypto.randomUUID();
-  const attempt:ExamAttempt={id,date:new Date(Math.min(now,a.endsAt || now)).toISOString(),score:a.questions.filter(q=>a.userAnswers[q.id]===q.correctAnswer).length,totalQuestions:a.questions.length,answers:{...a.userAnswers},questions:a.questions,flaggedQuestions:[...a.flaggedQuestions]};
+  const attempt:ExamAttempt={id,date:new Date(now).toISOString(),score:a.questions.filter(q=>a.userAnswers[q.id]===q.correctAnswer).length,totalQuestions:a.questions.length,answers:{...a.userAnswers},questions:a.questions,flaggedQuestions:[...a.flaggedQuestions]};
   return {...project,examHistory:project.examHistory.some(x=>x.id===id)?project.examHistory:[...project.examHistory,attempt],activeExam:{...a,status:'completed'}};
 }
 export function mergePracticeBackup(project: Project, value: unknown): Project {
   const state=parseBackup(value); let next=project;
   for (const a of [...state.history,...(state.active?[state.active]:[])]) {
+    if(next.voidedAttemptIds?.includes(a.id)) continue;
     const exam=parseProjectExam(a.exam,next.registry); next=addExam(next,exam);
     const numberMap=new Map(a.exam.questions.map((q,i)=>[q.id,i+1]));
     const answers=Object.fromEntries(Object.entries(a.answers).map(([id,v])=>[numberMap.get(Number(id))!,v]));
@@ -136,7 +137,7 @@ export function mergePracticeBackup(project: Project, value: unknown): Project {
       if(next.activeExam.attemptId!==a.id) next={...next,activeExam:{...emptyExam(),questions:exam.questions,userAnswers:answers,flaggedQuestions:flags,status:'active',configOpen:false,examId:exam.examId,attemptId:a.id,title:exam.title,durationMinutes:exam.durationMinutes,startedAt:a.startedAt,endsAt:a.endsAt}};
     }
   }
-  return next.activeExam.endsAt && next.activeExam.endsAt<=Date.now() ? submitProjectExam(next) : next;
+  return next;
 }
 export function projectShare(p: Project, includeSources=true, includeExams=true) {
   // Explicit allowlist: no user identity, answers, flags, active timers or history.
@@ -151,6 +152,7 @@ export function importProject(value: any, userId: string, mode:'local'|'cloud', 
   const project:Project={id:crypto.randomUUID(),userId,name:str(v.name,'Project name',250),description:typeof v.description==='string'?v.description:'',questionWritingInstructions:typeof v.questionWritingInstructions==='string'?v.questionWritingInstructions:'',styleExamples:v.styleExamples?.length?validateQuestions(v.styleExamples,registry):[],examReferenceFiles:list(v.examReferenceFiles||[],'Exam reference files',200).map(file),sourcePolicy:v.sourcePolicy==='all-sources'?'all-sources':'course-first',registry,referenceTotalQuestions:int(v.referenceTotalQuestions || 40,'Reference count',1,1000),learningObjectivesFiles:list(v.learningObjectivesFiles || [],'Objective files').map(file),blueprint:list(v.blueprint,'Blueprint').map(s=>({id:ident(s.id,'Section ID'),title:str(s.title,'Section title',250),description:typeof s.description==='string'?s.description:'',questionCount:String(s.questionCount || '1'),files:list(s.files || [],'Section files').map(file)})),savedExams:list(v.savedExams || [],'Saved exams',200).map(e=>parseProjectExam(e,registry,!e.registry)),storageMode:mode,allowOnlineAI:mode==='cloud',lastModified:new Date().toISOString(),examHistory:[],activeExam:emptyExam()};
   if(new Set(project.blueprint.map(x=>x.id)).size!==project.blueprint.length) throw new Error('Duplicate section IDs.');
   if(backup) {
+    project.voidedAttemptIds=[...new Set(list(v.voidedAttemptIds || [],'Withdrawn attempts',500).map(x=>ident(x,'Withdrawn attempt ID')))];
     // Restore into a new project, never overwrite a cloud record or change ownership.
     project.examHistory=list(v.examHistory || [],'History',500).map(a=>{
       const questions=validateQuestions(a.questions,registry,true),answers=obj(a.answers,'Saved answers');
@@ -161,6 +163,7 @@ export function importProject(value: any, userId: string, mode:'local'|'cloud', 
       return {id:ident(a.id,'Attempt ID'),date:a.date,answers,questions,score:questions.filter(q=>answers[q.id]===q.correctAnswer).length,totalQuestions:questions.length,flaggedQuestions:flags};
     });
     if(new Set(project.examHistory.map(a=>a.id)).size!==project.examHistory.length) throw new Error('Duplicate attempt IDs in backup.');
+    project.examHistory=project.examHistory.filter(a=>!project.voidedAttemptIds!.includes(a.id));
     project.archivedExams=list(v.archivedExams || [],'Unfinished exams',100).map(a=>importProject({format:'medexam-project-backup',project:{...v,examHistory:[],savedExams:[],archivedExams:[],activeExam:a}},userId,mode,cloudUploadApproved).activeExam);
     if(v.activeExam?.questions?.length) {
       const a=v.activeExam,questions=validateQuestions(a.questions,registry,true),answers=obj(a.userAnswers,'Active answers');
@@ -170,6 +173,7 @@ export function importProject(value: any, userId: string, mode:'local'|'cloud', 
       const flags=list(a.flaggedQuestions || [],'Flags').map(x=>int(x,'Flag',1,1000000));
       if(flags.some(x=>!questions.some(q=>q.id===x))) throw new Error('Invalid saved flag.');
       project.activeExam={...emptyExam(),questions,userAnswers:answers,flaggedQuestions:flags,status:a.status==='completed'?'completed':'active',configOpen:false,durationMinutes:duration,...(startedAt?{startedAt,endsAt:a.endsAt}:{}),...(a.attemptId?{attemptId:ident(a.attemptId,'Attempt ID')}:{}),...(a.examId?{examId:ident(a.examId,'Exam ID')}:{}),...(a.title?{title:str(a.title,'Title',250)}:{})};
+      if(a.recoveredFromAttemptId) project.activeExam.recoveredFromAttemptId=ident(a.recoveredFromAttemptId,'Recovered attempt ID');
     }
   }
   // Account storage and permission to send sources to Gemini are independent.

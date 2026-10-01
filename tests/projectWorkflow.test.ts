@@ -5,6 +5,23 @@ import {importProject,projectShare,parseProjectExam,addExam,beginProjectExam,sub
 import {buildGenerationPrompt,externalPacket,questionSources,MAX_CONTEXT_CHARS} from '../services/generationPrompt.ts';
 import {totalAnsweredQuestions,buildPracticeModeContext} from '../services/practiceMode.ts';
 import {emptyState,startAttempt,finishAttempt,recordAnswer,parseExam,backup} from '../services/privatePractice.ts';
+
+test('restoring an overdue unfinished exam keeps answers hidden and preserves its choices',()=>{
+ const p=importProject({name:'Timer test',blueprint:[],learningObjectivesFiles:[],referenceTotalQuestions:3},'local','local');
+ let s=startAttempt(emptyState(),parseExam(fixture()),'late-attempt',100000);
+ s=recordAnswer(s,1,'B',100010);s.active!.flags=[1];
+ const restored=mergePracticeBackup(p,backup(s));
+ assert.equal(restored.activeExam.status,'active');
+ assert.equal(restored.examHistory.length,0);
+ assert.deepEqual(restored.activeExam.userAnswers,{1:'B'});
+ assert.deepEqual(restored.activeExam.flaggedQuestions,[1]);
+ const submitted=submitProjectExam(restored,200000);
+ assert.equal(submitted.examHistory[0].date,new Date(200000).toISOString());
+ const withdrawn={...p,voidedAttemptIds:['late-attempt']};
+ const oldBackup=backup(finishAttempt(s,160000,'time-expired'));
+ const skipped=mergePracticeBackup(withdrawn,oldBackup);
+ assert.equal(skipped.examHistory.length,0);assert.equal(skipped.activeExam.questions.length,0);
+});
 function project() {
  const f=fixture();
  return importProject({name:'Synthetic rotation',description:'context marker',questionWritingInstructions:'recipe marker',registry:{...f.registry,objectives:{...f.registry.objectives,'DEMO.1#1':{topicId:'numbers',text:'Combine small sets.'}}},learningObjectivesFiles:[{id:'lo',name:'Objectives.txt',type:'txt',content:'objective marker',size:16}],referenceTotalQuestions:60,blueprint:[{id:'basics',title:'Foundations',description:'Core',questionCount:'60',files:[{id:'f',name:'Synthetic fixture',type:'txt',content:'source marker',size:13,topicIds:['numbers']}]}],styleExamples:[f.questions[0]],savedExams:[]},'local','local');
