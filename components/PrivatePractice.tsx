@@ -50,7 +50,11 @@ export default function PrivatePractice() {
   useEffect(() => {
     let stopped = false, release: (() => void) | undefined;
     if (!navigator.locks) { setLockReady(true); return; }
-    navigator.locks.request(STORAGE_KEY, { ifAvailable: true }, async lock => {
+    // React's development replay cleans up the first effect before this microtask.
+    // Do not let that cancelled request briefly occupy the second effect's lock.
+    Promise.resolve().then(() => {
+      if (stopped) return;
+      return navigator.locks.request(STORAGE_KEY, { ifAvailable: true }, async lock => {
       if (stopped) return;
       if (!lock) {
         setBlocked(true); setError('Private practice is already open in another tab. Close that tab, then reload this page.');
@@ -58,6 +62,7 @@ export default function PrivatePractice() {
       }
       setLockReady(true);
       await new Promise<void>(resolve => { release = resolve; if (stopped) resolve(); });
+      });
     }).catch(() => { if (!stopped) setLockReady(true); });
     return () => { stopped = true; release?.(); };
   }, []);

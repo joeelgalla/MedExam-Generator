@@ -4,7 +4,7 @@
 
 Removed expiry-triggered submission from the project player, answer/flag handlers, restored attempts, and standalone player. A visible pacing timer reaches zero without revealing answers; only an explicit Finish action submits. Submission timestamps reflect actual completion, including overtime. Withdrawn accidental-attempt IDs survive device merges and private backup restoration so a stale device cannot restore a cancelled result or close its recovered replacement. Friend shares omit recovery metadata.
 
-Validation: 92 automated tests, TypeScript and production build pass. Isolated Chrome UI check crosses the deadline, answers afterwards, preserves flags, reloads without exposing keys, and submits explicitly with blanks scored wrong; desktop and 390px checks have no page errors or private network writes. Owner-specific recovery evidence is in Clerkship, not the public repo.
+Validation: 92 automated tests, TypeScript and production build pass. Isolated Chrome UI check crosses the deadline, answers afterwards, preserves flags, reloads without exposing keys, and submits explicitly with blanks scored wrong; desktop and 390px checks have no page errors or private network writes. Standalone Chrome also verifies expiry, later answers, reload and explicit submission. Its development-only StrictMode lock acquisition race was reproduced and fixed by skipping cancelled effect requests. Owner-specific recovery evidence is in Clerkship, not the public repo.
 
 
 ## 2026-10-01 - Actual exam calibration and course-supported practice
