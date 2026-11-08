@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
+import { billingError } from '../lib/server/billingError.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (aiDisabled(process.env)) return res.status(503).json({ error: 'AI extraction is disabled on this preview.' });
@@ -51,6 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ text: response.text });
   } catch (error) {
     console.error('OCR API Error:', error);
+    const billing = billingError(error);
+    if (billing) return res.status(billing.status).json(billing);
     return res.status(500).json({ error: 'Failed to process file.' });
   }
 }

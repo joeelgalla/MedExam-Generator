@@ -1,3 +1,4 @@
+import { billingError } from './billingError.ts';
 export type SourceFile = { name: string; content: string };
 
 const normalize = (text: string) => text.normalize('NFKC').replace(/\s+/g, ' ').trim();
@@ -29,6 +30,8 @@ export function renderSourceAnalysis(result: unknown, files: SourceFile[]): stri
 }
 
 export function sourceAnalysisError(error: unknown): { status: number; error: string } {
+  const billing = billingError(error);
+  if (billing) return billing;
   const e = error as { status?: number; code?: number; message?: string };
   const message = typeof e?.message === 'string' ? e.message : '';
   const status = e?.status || e?.code;

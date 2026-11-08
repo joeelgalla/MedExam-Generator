@@ -22,6 +22,7 @@ test('source analysis preserves provider failures without inventing a context-si
   assert.equal(sourceAnalysisError({status:503}).status,503);
   assert.match(sourceAnalysisError({status:503}).error,/temporarily busy/);
   assert.equal(sourceAnalysisError({status:429}).status,429);
+  assert.equal(sourceAnalysisError({status:402,message:'RESOURCE_EXHAUSTED'}).status,402);
   assert.equal(sourceAnalysisError({status:403}).status,403);
   assert.equal(sourceAnalysisError(new Error('invalid quote')).status,502);
 });
