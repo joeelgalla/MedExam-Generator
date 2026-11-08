@@ -386,13 +386,13 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
     const recallMetric = stats.levelPerformance.find(l => l[0] === 'Level 1.1')?.[1];
 
     if (logicMetric && logicMetric.accuracyPct < 50 && logicMetric.total >= 3) {
-      recommendations.push('Clinical reasoning (Level 1.3) scores are low. Focus on cases that require connecting multiple findings rather than memorizing facts.');
+      recommendations.push(`You answered fewer than half of ${logicMetric.total} sampled clinical-reasoning questions correctly. Review their specific missed rules and try new cases; this sample does not measure your overall reasoning ability.`);
     }
     if (recallMetric && recallMetric.accuracyPct < 50 && recallMetric.total >= 3) {
-      recommendations.push('Factual recall (Level 1.1) is low. Use flashcards to solidify core definitions and anatomy.');
+      recommendations.push(`You answered fewer than half of ${recallMetric.total} sampled factual-recall questions correctly. Review those missed facts with flashcards, then retest them in new questions.`);
     }
     if (stats.totalFlagged > 0 && stats.totalFlagged / stats.totalQuestionsAnswered > 0.25) {
-      recommendations.push(`You flagged ${stats.totalFlagged} of ${stats.totalQuestionsAnswered} questions — a flag rate above 25% suggests broad uncertainty. Revisit lecture notes before drilling more practice.`);
+      recommendations.push(`You flagged ${stats.totalFlagged} of ${stats.totalQuestionsAnswered} completed questions. Review what made those choices uncertain, including any you answered correctly. Flags alone do not establish a broader knowledge gap.`);
     }
 
     return { strengths, recommendations };
@@ -621,7 +621,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
 
       {/* 4. Detailed Metrics Tabs */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-200">
+        <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-slate-200">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-b-2 ${activeTab === 'overview' ? 'border-blue-500 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Limited progress claims to observed samples
+
+Reworded flag and cognitive-level guidance around the measured sample rather than broad ability claims. Wrapped workspace navigation and arranged analytics tabs in two columns on narrow layouts to prevent observed horizontal overflow. 98 tests, typecheck and build pass; no learner-state or scoring changes.
+
 ## 2026-11-08 - Preserved secondary chapter evidence in AI context
 
 Include complete secondary cited teaching chapters in tutor and planned-generation contexts, retaining historical-recall and supplement boundaries. Label the tutor input/send controls for accessibility. 98 tests, typecheck and production build pass.
