@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Review search and coverage scope
+
+An independent design audit identified that review search omitted visible objective IDs and facts in options/explanations. Search now includes those fields. Coverage explains that its denominator is the project objective list, not all required modules or clinical competence. Post-submit source labels distinguish supplemental references and the primary objective; empty objective arrays no longer render a stray zero. No learner, scoring, model or billing changes. All 98 tests, TypeScript and the production build pass. Deployed UI readback pending.
+
 ## 2026-11-08 - Calibrated progress guidance and narrow layout
 
 An isolated five-question live test showed the guidance overgeneralizing two flags as broad uncertainty. Guidance now refers to the actual sampled questions and avoids inferring overall ability from flags or a few cognitive-level items. At the browser's observed 288px layout width, navigation and review tabs overflowed; the header navigation now wraps and analytics tabs use two columns below the small breakpoint. 98 tests, typecheck and production build pass. Live deployment layout readback is pending.

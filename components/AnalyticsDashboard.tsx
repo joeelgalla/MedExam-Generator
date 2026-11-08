@@ -242,6 +242,9 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ history, regist
         item.question.leadIn,
         item.question.metadata.cluster,
         item.question.metadata.sourceDocument || '',
+        ...(item.question.metadata.objectiveIds || []),
+        ...Object.values(item.question.options),
+        item.question.explanation || '',
         ...(item.question.metadata.losTested || []),
       ].join(' ').toLowerCase();
       return haystack.includes(needle);
