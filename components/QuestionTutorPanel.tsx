@@ -231,6 +231,7 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
 
         <div className="flex gap-2 items-end">
           <textarea
+            aria-label="Question for the AI tutor"
             ref={chatInputRef}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
@@ -242,6 +243,7 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
           />
           <button
             onClick={() => void handleSendChat()}
+            aria-label="Send tutor message"
             disabled={isSending || !chatInput.trim()}
             className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm font-medium shadow-sm"
           >

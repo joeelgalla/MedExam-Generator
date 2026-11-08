@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Preserved secondary chapter evidence in AI context
+
+Include complete secondary cited teaching chapters in tutor and planned-generation contexts, retaining historical-recall and supplement boundaries. Label the tutor input/send controls for accessibility. 98 tests, typecheck and production build pass.
+
 ## 2026-11-08 - Distinguished depleted credits from request limits
 
 A live provider HTTP 402 was mislabeled as a transient rate limit. All AI routes now explain depleted prepaid credits and retain saved exams/reviews. Added billing classification and no-retry SDK-route regression coverage; 97 tests, typecheck and build pass.

@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Complete cited teaching context
+
+Cross-topic imported questions can cite secondary teaching chapters absent from their primary objective topic. Tutor source selection and planned-question generation now include those complete attached chapters by exact cited filename; private recall examples remain excluded and course-first generation still excludes supplements. Added tutor input/send accessible names. 98 tests, typecheck and production build pass, including a cross-topic citation regression.
+
 ## 2026-11-08 - Live Gemini billing result
 
 Import repair is deployed from PR #14. A real authorized generation request now reaches Gemini, which returns HTTP 402: prepaid credits depleted. Added explicit billing handling before generic RESOURCE_EXHAUSTED/rate-limit handling for generation, source analysis, tutor and extraction. All 97 tests, typecheck and build pass; SDK transport fixtures verify one call per route and actionable 402 feedback. No credit purchase or billing configuration change.
