@@ -1,5 +1,8 @@
+import { billingError } from './billingError.ts';
 /** User-facing errors based on the provider's actual response, never a guessed plan. */
 export function generationError(message:string) {
+  const billing = billingError(message);
+  if (billing) return billing;
   if (/429|RESOURCE_EXHAUSTED/i.test(message)) {
     if (/quota|free_tier/i.test(message)) {
       const zero=/limit["']?\s*:\s*0\b/i.test(message);

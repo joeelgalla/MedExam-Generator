@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Distinguished depleted credits from request limits
+
+A live provider HTTP 402 was mislabeled as a transient rate limit. All AI routes now explain depleted prepaid credits and retain saved exams/reviews. Added billing classification and no-retry SDK-route regression coverage; 97 tests, typecheck and build pass.
+
 ## 2026-11-08 - Fixed compiled generation imports and hosting-error feedback
 
 Enabled relative TypeScript import-extension rewriting during server emission. The generation verifier and its dependencies now resolve emitted JavaScript instead of missing source files. Non-JSON AI endpoint failures report the HTTP status and preserve existing exams instead of displaying a JSON parser exception. Added real emitted-handler loading and response-error regression coverage; all 96 tests, TypeScript and production build pass. No database, model, billing or learner-state changes.

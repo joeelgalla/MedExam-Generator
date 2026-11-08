@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Live Gemini billing result
+
+Import repair is deployed from PR #14. A real authorized generation request now reaches Gemini, which returns HTTP 402: prepaid credits depleted. Added explicit billing handling before generic RESOURCE_EXHAUSTED/rate-limit handling for generation, source analysis, tutor and extraction. All 97 tests, typecheck and build pass; SDK transport fixtures verify one call per route and actionable 402 feedback. No credit purchase or billing configuration change.
+
 ## 2026-11-08 - Production generation import repair
 
 An authorized isolated-account browser test reached `/api/generate`, which crashed before model access: the deployed `generationVerifier.js` imported a nonexistent `services/generationEvidence.ts`. Enable TypeScript's relative extension rewriting so emitted server imports target emitted JavaScript throughout the dependency graph. Added a regression test that compiles and imports the real generation handler without its TypeScript sources, plus defensive response parsing for plain-text hosting errors. Local validation: 96 tests, typecheck and production build passed. Live deployment/retest outcome is pending; private study content and evidence stay outside this repository.

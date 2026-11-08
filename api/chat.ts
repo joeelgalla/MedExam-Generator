@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
+import { billingError } from '../lib/server/billingError.ts';
 
 // Per-question tutor chat. Stateless: client sends full history each turn.
 // The stable prefix (source files + question context) lives in systemInstruction
@@ -114,6 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ text: response.text || 'No reply generated.' });
   } catch (error: any) {
     console.error('Chat API Error:', error);
+    const billing = billingError(error);
+    if (billing) return res.status(billing.status).json(billing);
     const msg = error?.message || String(error);
 
     if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {

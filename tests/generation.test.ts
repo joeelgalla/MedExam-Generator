@@ -72,12 +72,13 @@ test('upstream failures are never automatically retried and zero Pro quota names
   delete process.env.DISABLE_AI;
   const errors: unknown[][]=[];console.error=(...args)=>{errors.push(args);};
   let calls=0;
-  const message='Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: synthetic-pro';
+  let providerStatus=429;
+  let message='Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: synthetic-pro';
   globalThis.fetch=async(input,init)=>{
     const request=new Request(input,init);
     if(request.url.includes('/auth/v1/user')) return new Response(JSON.stringify({id:'synthetic-user',is_anonymous:false}),{headers:{'content-type':'application/json'}});
     calls++;
-    return new Response(JSON.stringify({error:{code:429,status:'RESOURCE_EXHAUSTED',message}}),{status:429,headers:{'content-type':'application/json'}});
+    return new Response(JSON.stringify({error:{code:providerStatus,status:'RESOURCE_EXHAUSTED',message}}),{status:providerStatus,headers:{'content-type':'application/json'}});
   };
   try {
     for(const route of ['generate','analyze','chat','ocr']) {
@@ -90,6 +91,11 @@ test('upstream failures are never automatically retried and zero Pro quota names
       assert.equal(calls-before,1,route);
       if(route==='generate') {assert.equal(status,429,String(errors.at(-1)?.[1]));assert.match(body.error,/zero quota/);assert.match(body.error,/billing in Google AI Studio/);}
       else assert.ok(status>=400,route);
+      providerStatus=402;message='Your prepayment credits are depleted. Please go to AI Studio to manage your project and billing.';
+      const paymentCalls=calls;
+      await module.exports.default({method:'POST',headers:{authorization:'Bearer synthetic'},body:{prompt:'Synthetic question',question:{vignette:'Synthetic',leadIn:'Test',options:{A:'One'},correctAnswer:'A'},files:[{name:'Synthetic',content:'Synthetic reference text'}],history:[],userMessage:'Explain',base64Data:'AA==',mimeType:'image/png'}},res);
+      assert.equal(calls-paymentCalls,1,route);assert.equal(status,402,route);assert.match(body.error,/prepaid Gemini credits are depleted/,route);
+      providerStatus=429;message='Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: synthetic-pro';
     }
   } finally {
     globalThis.fetch=originalFetch;console.error=originalError;
