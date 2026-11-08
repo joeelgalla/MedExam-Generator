@@ -5,6 +5,7 @@ export { MAX_CONTEXT_CHARS } from '../lib/requestLimits.ts';
 import { buildPracticeDirective, buildPracticeModeContext, isModeUnlocked } from './practiceMode.ts';
 import { generationObjectivePlan, plannedRechecks, studyItemKey } from './objectiveCoverage.ts';
 export const MAX_BUILTIN_QUESTIONS = 20;
+const citedFiles = (q: ExamQuestion) => [q.metadata.sourceDocument, ...(q.metadata.sources || []).map(s=>s.title)].filter(Boolean);
 export function selectedSections(project: Project) {
   const ids=project.activeExam.selectedSectionIds;
   return ids ? project.blueprint.filter(s=>ids.includes(s.id)) : project.blueprint;
@@ -13,7 +14,8 @@ export function questionSources(project:Project,q:ExamQuestion) {
   const sections=project.blueprint.filter(s=>s.id===q.metadata.bucketId);
   const files=project.blueprint.flatMap(s=>s.files);
   const topics=new Set([q.metadata.topicId,...(project.registry?.objectives[q.metadata.objectiveIds?.[0]||'']?.sourceTopicIds||[])]);
-  const relevant=files.filter(f=>f.name===q.metadata.sourceDocument || f.topicIds?.some(id=>topics.has(id)));
+  const cited=new Set(citedFiles(q));
+  const relevant=files.filter(f=>cited.has(f.name) || f.topicIds?.some(id=>topics.has(id)));
   return [...new Map((relevant.length?relevant:[...project.learningObjectivesFiles,...(sections.length?sections:project.blueprint).flatMap(s=>s.files)]).map(f=>[f.id,f])).values()];
 }
 function objectiveFiles(project:Project,plan:string[]) {
@@ -22,10 +24,14 @@ function objectiveFiles(project:Project,plan:string[]) {
 export function generationSources(project:Project) {
   const sections=selectedSections(project),plan=generationObjectivePlan(project,sections.map(s=>s.id),project.activeExam.questionCount);
   const topics=new Set(plan.flatMap(id=>[project.registry!.objectives[id].topicId,...(project.registry!.objectives[id].sourceTopicIds||[])]));
+  // Keep the complete cited chapters for planned tasks even when their teaching
+  // crosses the primary objective's topic; recalled exams are never source files.
+  const plannedItems=[...(project.savedExams || []).filter(e=>!e.retired).flatMap(e=>e.questions).filter(q=>plan.includes(q.metadata.objectiveIds?.[0] || '')), ...plannedRechecks(project,plan)];
+  const cited=new Set(plannedItems.flatMap(citedFiles));
   const selectedIds=new Set(sections.map(s=>s.id));
   const files=project.blueprint.flatMap(s=>s.files.filter(f=>
     (project.sourcePolicy==='all-sources'||f.kind!=='supplement') &&
-    (f.topicIds?.length&&topics.size?f.topicIds.some(id=>topics.has(id)):selectedIds.has(s.id))));
+    (cited.has(f.name) || (f.topicIds?.length&&topics.size?f.topicIds.some(id=>topics.has(id)):selectedIds.has(s.id)))));
   return [...new Map([...objectiveFiles(project,plan),...files].map(f=>[f.id,f])).values()];
 }
 export function generationExamples(project:Project,plan?:string[]) {

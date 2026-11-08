@@ -156,3 +156,19 @@ test('course-first generation excludes supplements and can find clinical teachin
  p.sourcePolicy='all-sources';assert.ok(generationSources(p).some(f=>f.id==='extra'));
  const friend=importProject(projectShare(p),'friend','local');assert.deepEqual(friend.registry!.objectives['SKILL.1'].sourceTopicIds,['clinical']);
 });
+
+test('secondary cited chapters reach tutor and new practice without admitting recalls or unselected supplements',async()=>{
+ const {generationSources,questionSources}=await import('../services/generationPrompt.ts');
+ const p=project(),q=p.savedExams![0].questions[0];
+ const cross={...source,id:'secondary-clinical',name:'Secondary clinical chapter',topicIds:['other-topic']};
+ const supplement={...cross,id:'supplement',name:'Supplementary note',kind:'supplement' as const};
+ p.blueprint.push({id:'other',title:'Other chapter',description:'',questionCount:'1',files:[cross,supplement]});
+ p.examReferenceFiles=[{...cross,id:'historical-recall',name:'Private recall'}];
+ q.metadata.sources=[{title:cross.name},{title:supplement.name},{title:'Private recall'}];
+ p.activeExam.questionCount=3;p.activeExam.selectedSectionIds=['basics'];
+ const tutor=questionSources(p,q),generation=generationSources(p);
+ assert.ok(tutor.some(f=>f.id===cross.id));assert.ok(generation.some(f=>f.id===cross.id));
+ assert.ok(!tutor.some(f=>f.id==='historical-recall'));assert.ok(!generation.some(f=>f.id==='historical-recall'));
+ assert.ok(!generation.some(f=>f.id==='supplement'));
+ assert.equal(generation.find(f=>f.id===cross.id)?.content,cross.content);
+});
