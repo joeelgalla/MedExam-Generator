@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Production generation import repair
+
+An authorized isolated-account browser test reached `/api/generate`, which crashed before model access: the deployed `generationVerifier.js` imported a nonexistent `services/generationEvidence.ts`. Enable TypeScript's relative extension rewriting so emitted server imports target emitted JavaScript throughout the dependency graph. Added a regression test that compiles and imports the real generation handler without its TypeScript sources, plus defensive response parsing for plain-text hosting errors. Local validation: 96 tests, typecheck and production build passed. Live deployment/retest outcome is pending; private study content and evidence stay outside this repository.
+
 ## 2026-10-01 - Practice timer no longer submits automatically
 
 Removed expiry-triggered submission from the project player, answer/flag handlers, restored attempts, and standalone player. A visible pacing timer reaches zero without revealing answers; only an explicit Finish action submits. Submission timestamps reflect actual completion, including overtime. Withdrawn accidental-attempt IDs survive device merges and private backup restoration so a stale device cannot restore a cancelled result or close its recovered replacement. Friend shares omit recovery metadata.
