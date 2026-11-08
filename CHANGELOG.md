@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Added Vertex AI authentication and upgraded Flash routes to Gemini 3.8 Flash
+
+Added `lib/server/geminiClient.ts` so `/api/generate`, `/api/analyze`, `/api/chat`, `/api/ocr`, and `/api/ai-status` authenticate against Google Cloud Vertex AI when `GOOGLE_VERTEX_CREDENTIALS_JSON` is configured, avoiding the depleted AI Studio prepay wallet while retaining `GEMINI_API_KEY` fallback. Upgraded `/api/analyze`, `/api/chat`, and `/api/ocr` from deprecated `gemini-2.5-flash` to `gemini-3.8-flash` (`GEMINI_FLASH_MODEL`) and kept `gemini-3.1-pro-preview` (`GEMINI_QUESTION_MODEL`) for `/api/generate` and blind answer verification. Added unit and source-analysis regression tests; 99 tests, TypeScript, and production build pass.
+
 ## 2026-11-08 - Clarified coverage and completed review search
 
 Expanded completed-review search to objective IDs, options and explanations; added project-scope wording to coverage and explicit supplemental/primary-objective labels to question reviews. Fixed the empty-objective JSX guard. Learner data and scoring logic unchanged.

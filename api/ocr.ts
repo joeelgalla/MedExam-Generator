@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
-import { billingError } from '../lib/server/billingError.ts';
+import { billingError } from '../lib/server/billingError.js';
+import { createGeminiClient, flashModel, hasGeminiConfig } from '../lib/server/geminiClient.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (aiDisabled(process.env)) return res.status(503).json({ error: 'AI extraction is disabled on this preview.' });
@@ -12,8 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!(await requireAIUser(req,res))) return;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!hasGeminiConfig(process.env)) {
     return res.status(500).json({ error: 'Server configuration error: API key not configured.' });
   }
 
@@ -25,14 +24,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing base64Data or mimeType in request body.' });
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(process.env);
 
     const textPrompt = type === 'media'
       ? "Transcribe the spoken audio from this file verbatim. Do not summarize, just output the full transcript text. If there is no speech, state '[No speech detected]'."
       : "Transcribe all legible text from this image exactly as it appears. Do not summarize, just output the text content.";
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: flashModel(process.env),
       contents: [
         {
           parts: [

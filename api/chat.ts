@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
-import { billingError } from '../lib/server/billingError.ts';
+import { billingError } from '../lib/server/billingError.js';
+import { createGeminiClient, flashModel, hasGeminiConfig } from '../lib/server/geminiClient.js';
 
 // Per-question tutor chat. Stateless: client sends full history each turn.
 // The stable prefix (source files + question context) lives in systemInstruction
@@ -72,8 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!(await requireAIUser(req,res))) return;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!hasGeminiConfig(process.env)) {
     return res.status(500).json({ error: 'Server configuration error: API key not configured.' });
   }
 
@@ -90,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing question, files, or userMessage in request body.' });
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(process.env);
     const systemInstruction = buildSystemInstruction(question, files);
 
     // Gemini contents: alternating user/model turns. Frontend uses 'assistant'; SDK expects 'model'.
@@ -104,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: flashModel(process.env),
       contents,
       config: {
         systemInstruction,

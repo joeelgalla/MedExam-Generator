@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Vertex AI routing and Gemini 3.8 Flash migration
+
+All server AI routes (`/api/generate`, `/api/analyze`, `/api/chat`, `/api/ocr`, and `/api/ai-status`) now share `lib/server/geminiClient.ts`, preferring Google Cloud Vertex AI service-account credentials (`GOOGLE_VERTEX_CREDENTIALS_JSON`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`) so requests draw from standard Cloud Billing and the monthly Google AI Pro Cloud credit instead of the depleted AI Studio prepay wallet (`HTTP 402`), while preserving `GEMINI_API_KEY` fallback. Upgraded the default fast model for `/api/analyze`, `/api/chat`, and `/api/ocr` from deprecated `gemini-2.5-flash` (which returns `404` on Vertex `global`) to `gemini-3.8-flash` (overridable via `GEMINI_FLASH_MODEL`), keeping `gemini-3.1-pro-preview` (overridable via `GEMINI_QUESTION_MODEL`) for `/api/generate` and `verifyDraft`. All 99 automated tests, TypeScript, production build, and live Vertex AI E2E checks across `/api/analyze`, `/api/chat`, and `/api/generate` + `verifyDraft` pass.
+
 ## 2026-11-08 - Review search and coverage scope
 
 An independent design audit identified that review search omitted visible objective IDs and facts in options/explanations. Search now includes those fields. Coverage explains that its denominator is the project objective list, not all required modules or clinical competence. Post-submit source labels distinguish supplemental references and the primary objective; empty objective arrays no longer render a stray zero. No learner, scoring, model or billing changes. All 98 tests, TypeScript and the production build pass. Deployed UI readback pending.

@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { Type, ThinkingLevel } from '@google/genai';
 import { MAX_CONTEXT_CHARS } from '../lib/requestLimits.js';
 import { aiDisabled } from '../lib/server/aiPolicy.js';
 import { requireAIUser } from '../lib/server/aiAuth.js';
 import { generationError } from '../lib/server/generationError.js';
+import { createGeminiClient, hasGeminiConfig, questionModel } from '../lib/server/geminiClient.js';
 
 import { SYSTEM_INSTRUCTION } from '../lib/examRules.js';
 import {verifyDraft} from '../lib/server/generationVerifier.js';
@@ -23,8 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!(await requireAIUser(req,res))) return;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!hasGeminiConfig(process.env)) {
     return res.status(500).json({ error: 'Server configuration error: API key not configured.' });
   }
 
@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if(!Number.isInteger(count)||count<1||count>20)return res.status(400).json({error:'Choose between 1 and 20 questions per set.'});
     if(!Array.isArray(files)||!files.length||files.length>100||files.some(f=>typeof f?.name!=='string'||typeof f?.content!=='string')||files.reduce((n,f)=>n+f.content.length,0)>MAX_CONTEXT_CHARS)return res.status(400).json({error:'Provide the selected study files for question checking. Select fewer sections if necessary; no material is silently cut.'});
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(process.env);
 
     const thinkingLevel = difficulty === 'expert'
       ? ThinkingLevel.HIGH
@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? ThinkingLevel.MEDIUM
         : ThinkingLevel.LOW;
 
-    const model = process.env.GEMINI_QUESTION_MODEL?.trim() || 'gemini-3.1-pro-preview';
+    const model = questionModel(process.env);
     const response = await ai.models.generateContent({
       model,
       contents: prompt,

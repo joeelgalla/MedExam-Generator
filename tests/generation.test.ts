@@ -104,3 +104,32 @@ test('upstream failures are never automatically retried and zero Pro quota names
     }
   }
 });
+
+test('geminiClient supports Vertex AI credentials and model defaults while preserving API-key fallback', async () => {
+  const { createGeminiClient, hasGeminiConfig, questionModel, flashModel } = await import('../lib/server/geminiClient.ts');
+  assert.equal(hasGeminiConfig({}), false);
+  assert.equal(hasGeminiConfig({ GEMINI_API_KEY: 'test-key' }), true);
+  assert.equal(hasGeminiConfig({ GOOGLE_VERTEX_CREDENTIALS_JSON: '{"type":"service_account","project_id":"test-proj"}' }), true);
+  assert.equal(questionModel({}), 'gemini-3.1-pro-preview');
+  assert.equal(questionModel({ GEMINI_QUESTION_MODEL: ' gemini-4-argon ' }), 'gemini-4-argon');
+  assert.equal(flashModel({}), 'gemini-3.8-flash');
+  assert.equal(flashModel({ GEMINI_FLASH_MODEL: ' gemini-3.5-flash-lite ' }), 'gemini-3.5-flash-lite');
+
+  const vertexClient = createGeminiClient({
+    GOOGLE_VERTEX_CREDENTIALS_JSON: JSON.stringify({
+      type: 'service_account',
+      project_id: 'ai-assistant-cli-490505',
+      client_email: 'synthetic@ai-assistant-cli-490505.iam.gserviceaccount.com',
+      private_key: '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\n-----END PRIVATE KEY-----\n',
+    }),
+  }) as any;
+  assert.equal(vertexClient.vertexai, true);
+  assert.equal(vertexClient.project, 'ai-assistant-cli-490505');
+  assert.equal(vertexClient.location, 'global');
+
+  const apiKeyClient = createGeminiClient({
+    GEMINI_API_KEY: 'synthetic-key',
+    GOOGLE_GENAI_USE_VERTEXAI: 'true',
+  }) as any;
+  assert.equal(apiKeyClient.vertexai, false);
+});

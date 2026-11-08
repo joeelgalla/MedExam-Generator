@@ -36,6 +36,7 @@ test('analysis API checks model quotes, preserves a 503 and does not retry invis
   const request=new Request(input,init);
   if(request.url.includes('/auth/v1/user'))return new Response(JSON.stringify({id:'synthetic-user',is_anonymous:false}),{headers:{'content-type':'application/json'}});
   calls++;const body=JSON.parse(await request.text());
+  assert.ok(request.url.includes('/models/gemini-3.8-flash:generateContent'));
   assert.equal(body.generationConfig.responseMimeType,'application/json');
   assert.ok(body.generationConfig.responseSchema.properties.evidence);
   if(scenario==='busy')return new Response(JSON.stringify({error:{code:503,status:'UNAVAILABLE',message:'This model is currently experiencing high demand.'}}),{status:503,headers:{'content-type':'application/json'}});

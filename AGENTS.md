@@ -37,7 +37,8 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 
 ## Model roles (do not break this split)
 - **`GEMINI_QUESTION_MODEL` (default `gemini-3.1-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The retired 3.0 ID returned an upstream 404 confirmed in Vercel logs on 2026-09-27; the default now follows the replacement named by that error. A mocked SDK transport check verifies request and response compatibility, not a billable end-to-end generation. All AI handlers are disabled on Vercel preview deployments. Production requires a remotely verified Supabase bearer token and AI_ALLOWED_USER_IDS allowlist.
-- **`gemini-2.5-flash`** — OCR (`extractTextFromImage`), media transcription (`transcribeMedia`), and Deep Dive source verification (`getQuestionSourceAnalysis`). Retrieval/extraction only — never swap Flash in for question generation.
+- **`GEMINI_FLASH_MODEL` (default `gemini-3.8-flash`)** — OCR (`extractTextFromImage`), media transcription (`transcribeMedia`), Deep Dive source verification (`getQuestionSourceAnalysis`), and per-question tutor chat (`api/chat.ts`). Retrieval/extraction/tutoring only — never swap Flash in for question generation.
+- **Transport (`lib/server/geminiClient.ts`)** — prefers Google Cloud Vertex AI (`GOOGLE_VERTEX_CREDENTIALS_JSON`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`) so production calls draw against Google Cloud billing/credits (`ai-assistant-cli-490505`), with fallback to `GEMINI_API_KEY` (`vertexai: false`) when Vertex credentials are absent.
 
 ## Recent changes & rationale
 See [CHANGES.md](./CHANGES.md) for the running log. Read it before modifying `services/geminiService.ts` — recent optimizations (model IDs, `thinkingBudget` gating, prompt ordering for implicit caching) have specific reasons that aren't obvious from the code alone.
