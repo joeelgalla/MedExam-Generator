@@ -201,8 +201,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                     <div className="mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
                         {question.metadata.coverageNote && <p className="mb-2">Task sampled: {question.metadata.coverageNote}</p>}
                         <span>LOs Tested: {question.metadata.losTested.join(', ')}</span>
-                        {question.metadata.objectiveIds?.length && <p className="mt-1">Objective IDs: {question.metadata.objectiveIds.join(', ')}</p>}
-                        {question.metadata.sources?.map((s,i)=><p className="mt-1" key={i}>{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.title}</a>:s.title}{s.page?` · p. ${s.page}`:''}</p>)}
+                        {Boolean(question.metadata.objectiveIds?.length) && <p className="mt-1">Primary objective: {question.metadata.objectiveIds![0]}{question.metadata.objectiveIds!.length>1?` · Related: ${question.metadata.objectiveIds!.slice(1).join(', ')}`:''}</p>}
+                        {question.metadata.sources?.map((s,i)=><p className="mt-1" key={i}>{s.kind==='supplement'&&<span className="font-medium text-amber-900">Supplemental reference · </span>}{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.title}</a>:s.title}{s.page?` · p. ${s.page}`:''}</p>)}
                     </div>
 
                     {!privatePractice && <div className="mt-3">

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Clarified coverage and completed review search
+
+Expanded completed-review search to objective IDs, options and explanations; added project-scope wording to coverage and explicit supplemental/primary-objective labels to question reviews. Fixed the empty-objective JSX guard. Learner data and scoring logic unchanged.
+
 ## 2026-11-08 - Limited progress claims to observed samples
 
 Reworded flag and cognitive-level guidance around the measured sample rather than broad ability claims. Wrapped workspace navigation and arranged analytics tabs in two columns on narrow layouts to prevent observed horizontal overflow. 98 tests, typecheck and build pass; no learner-state or scoring changes.
