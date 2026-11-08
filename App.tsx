@@ -664,8 +664,8 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
              </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <nav className="flex items-center p-1 bg-slate-100 rounded-lg mr-2">
+          <div className="flex items-center gap-2 max-w-full">
+            <nav className="flex flex-wrap items-center p-1 bg-slate-100 rounded-lg max-w-full">
                 <button 
                     onClick={() => setActiveTab('overview')}
                     aria-label="Exams"

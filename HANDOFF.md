@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Calibrated progress guidance and narrow layout
+
+An isolated five-question live test showed the guidance overgeneralizing two flags as broad uncertainty. Guidance now refers to the actual sampled questions and avoids inferring overall ability from flags or a few cognitive-level items. At the browser's observed 288px layout width, navigation and review tabs overflowed; the header navigation now wraps and analytics tabs use two columns below the small breakpoint. 98 tests, typecheck and production build pass. Live deployment layout readback is pending.
+
 ## 2026-11-08 - Complete cited teaching context
 
 Cross-topic imported questions can cite secondary teaching chapters absent from their primary objective topic. Tutor source selection and planned-question generation now include those complete attached chapters by exact cited filename; private recall examples remain excluded and course-first generation still excludes supplements. Added tutor input/send accessible names. 98 tests, typecheck and production build pass, including a cross-topic citation regression.
