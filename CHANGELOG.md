@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Fixed compiled generation imports and hosting-error feedback
+
+Enabled relative TypeScript import-extension rewriting during server emission. The generation verifier and its dependencies now resolve emitted JavaScript instead of missing source files. Non-JSON AI endpoint failures report the HTTP status and preserve existing exams instead of displaying a JSON parser exception. Added real emitted-handler loading and response-error regression coverage; all 96 tests, TypeScript and production build pass. No database, model, billing or learner-state changes.
+
 ## 2026-10-01 - Practice timer no longer submits automatically
 
 Removed expiry-triggered submission from the project player, answer/flag handlers, restored attempts, and standalone player. A visible pacing timer reaches zero without revealing answers; only an explicit Finish action submits. Submission timestamps reflect actual completion, including overtime. Withdrawn accidental-attempt IDs survive device merges and private backup restoration so a stale device cannot restore a cancelled result or close its recovered replacement. Friend shares omit recovery metadata.
