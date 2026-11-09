@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-08 - Upgraded default question generation model to Gemini 3.8 Flash and handled 504 timeouts
+
+Switched `DEFAULT_QUESTION_MODEL` in `lib/server/geminiClient.ts` from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, increased the writer pass timeout in `api/generate.ts` to 210s, and mapped upstream `504 DEADLINE_EXCEEDED` responses to an explicit timeout message in `lib/server/generationError.ts`. Benchmarking on the full 20-question Psychiatry prompt (`142,658` input tokens, `14,062` output tokens) reduced writer + blind-checker execution from >170s (`504 DEADLINE_EXCEEDED`) to 147.1s end-to-end. All 103 tests, TypeScript, and production build pass.
+
 ## 2026-11-08 - Restored exam task tags and enforced harder generation
 
 Cognitive-level names (Recall, Understanding, Application) and question subtypes are visible during active cloud and standalone exams again. Topic/objective hints remain post-submit. The generation checker now classifies cognitive level and subtype independently and replaces writer labels; hard/expert generation rejects items assessed as foundational. Writer instructions explicitly reject tone-based elimination and require answer-determining case details. No fixed cognitive quotas or claim of validated ME difficulty.

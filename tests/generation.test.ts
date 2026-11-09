@@ -27,7 +27,7 @@ test('production generation uses the replacement model and parses a mocked SDK r
     const module = { exports: {} as { default: (req: unknown, res: unknown) => Promise<unknown> } };
     new Function('require', 'module', 'exports', bundle.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
     const promptSources=(module.exports as any).promptSources;assert.deepEqual(promptSources('--- FILE: current.txt ---\nCurrent source\n--- END FILE ---\n--- FILE (Older section): older.txt ---\nOlder source\n--- END FILE ---'),[{name:'current.txt',content:'Current source'},{name:'older.txt',content:'Older source'}]);
-    for (const [difficulty, level, model] of [['standard', 'LOW', 'gemini-3.1-pro-preview'], ['hard', 'MEDIUM', 'test-configured-pro']] as const) {
+    for (const [difficulty, level, model] of [['standard', 'LOW', 'gemini-3.8-flash'], ['hard', 'MEDIUM', 'test-configured-pro']] as const) {
       if (difficulty === 'hard') process.env.GEMINI_QUESTION_MODEL = ` ${model} `;
       let status = 0, body: any;
       const res = { status(n: number) { status = n; return this; }, json(v: unknown) { body = v; return this; } };
@@ -110,7 +110,7 @@ test('geminiClient supports Vertex AI credentials and model defaults while prese
   assert.equal(hasGeminiConfig({}), false);
   assert.equal(hasGeminiConfig({ GEMINI_API_KEY: 'test-key' }), true);
   assert.equal(hasGeminiConfig({ GOOGLE_VERTEX_CREDENTIALS_JSON: '{"type":"service_account","project_id":"test-proj"}' }), true);
-  assert.equal(questionModel({}), 'gemini-3.1-pro-preview');
+  assert.equal(questionModel({}), 'gemini-3.8-flash');
   assert.equal(questionModel({ GEMINI_QUESTION_MODEL: ' gemini-4-argon ' }), 'gemini-4-argon');
   assert.equal(flashModel({}), 'gemini-3.8-flash');
   assert.equal(flashModel({ GEMINI_FLASH_MODEL: ' gemini-3.5-flash-lite ' }), 'gemini-3.5-flash-lite');

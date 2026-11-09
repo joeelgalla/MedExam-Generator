@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-export const DEFAULT_QUESTION_MODEL = 'gemini-3.1-pro-preview';
+export const DEFAULT_QUESTION_MODEL = 'gemini-3.8-flash';
 export const DEFAULT_FLASH_MODEL = 'gemini-3.8-flash';
 export const DEFAULT_VERTEX_PROJECT = 'ai-assistant-cli-490505';
 export const DEFAULT_VERTEX_LOCATION = 'global';

@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model,
       contents: prompt,
       config: {
-        httpOptions:{timeout:170000},
+        httpOptions:{timeout:210000},
         systemInstruction: SYSTEM_INSTRUCTION,
         thinkingConfig: { thinkingLevel },
         maxOutputTokens: 32768,

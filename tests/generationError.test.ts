@@ -15,5 +15,7 @@ test('quota exhaustion differs from temporary rate limiting without claiming the
  assert.equal(zero.code,'quota');assert.match(zero.error,/zero quota/);assert.match(zero.error,/Waiting alone will not fix/);
  assert.equal(generationError('429 You exceeded your current quota').code,'quota');
  assert.equal(generationError('429 RESOURCE_EXHAUSTED requests too frequent').code,'rate_limit');
+ assert.equal(generationError('504 DEADLINE_EXCEEDED Deadline expired before operation could complete').status,504);
+ assert.equal(generationError('504 DEADLINE_EXCEEDED Deadline expired before operation could complete').code,'timeout');
  assert.equal(generationError('503 UNAVAILABLE').status,503);
 });

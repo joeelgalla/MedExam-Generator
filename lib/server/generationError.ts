@@ -13,6 +13,7 @@ export function generationError(message:string) {
     return {status:429,code:'rate_limit',error:'Google is receiving too many requests. Wait a moment, then try again. Your saved exams are unchanged.'};
   }
   if (/403|PERMISSION_DENIED/.test(message)) return {status:403,code:'access',error:'Google denied access to the question model. The app owner needs to check the server API configuration.'};
+  if (/504|DEADLINE_EXCEEDED/i.test(message)) return {status:504,code:'timeout',error:'The AI model took too long to finish this set. Try generating fewer questions at once. Your saved exams are unchanged.'};
   if (/503|UNAVAILABLE/.test(message)) return {status:503,code:'unavailable',error:'The AI model is temporarily overloaded. Please try again shortly.'};
   return {status:500,code:'generation',error:'Failed to generate exam. Please try again. Your saved exams are unchanged.'};
 }

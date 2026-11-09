@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-08 - Upgraded question generation default to Gemini 3.8 Flash to prevent 20-question 504 timeouts
+
+A live 20-question Hard Psychiatry generation attempt (`654,035` characters / `142,658` prompt tokens + `14,062` output tokens) authenticated on Vertex AI (`ai-assistant-cli-490505`) but timed out at 167s (`504 DEADLINE_EXCEEDED`) on `gemini-3.1-pro-preview` during the writer pass (`httpOptions.timeout: 170000`). Upgraded `DEFAULT_QUESTION_MODEL` in `lib/server/geminiClient.ts` to `gemini-3.8-flash` (overridable via `GEMINI_QUESTION_MODEL`), raised the writer timeout in `api/generate.ts` to `210000` (210s), and added explicit `504 DEADLINE_EXCEEDED` classification in `lib/server/generationError.ts`. On the exact 654k-character 20-question Psychiatry prompt, `gemini-3.8-flash` (`ThinkingLevel.MEDIUM`) completed the 20-question writer pass in 87.2s and the 6-batch blind verifier pass in 59.9s (147.1s total within Vercel Fluid's 300s limit). All 103 automated tests, TypeScript, and production build pass.
+
 ## 2026-11-08 - Restored exam task tags and enforced harder generation
 
 Cognitive-level names (Recall, Understanding, Application) and question subtypes are visible during active cloud and standalone exams again. Topic/objective hints remain post-submit. The generation checker now classifies cognitive level and subtype independently and replaces writer labels; hard/expert generation rejects items assessed as foundational. Writer instructions explicitly reject tone-based elimination and require answer-determining case details. No fixed cognitive quotas or claim of validated ME difficulty.
