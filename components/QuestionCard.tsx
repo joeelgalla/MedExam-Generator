@@ -1,7 +1,8 @@
 
 import React, { useState, useRef } from 'react';
 import { ExamQuestion, ChatMessage } from '../types';
-import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Flag, Highlighter, RefreshCw } from 'lucide-react';
+import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Flag, Highlighter, RefreshCw, Strikethrough, Eraser } from 'lucide-react';
+import { applyTextMark, emptyMarks, textSegments, type AnnotationTool, type TextMarks } from '../services/textAnnotations';
 import QuestionTutorPanel from './QuestionTutorPanel';
 import SourcePassages from './SourcePassages';
 
@@ -34,12 +35,10 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   hideMetadata = privatePractice,
   interactionDisabled = false
 }) => {
-  // Highlight State (Local, pre-submit marker)
-  // We initialize with the raw text. Subsequent highlights modify this HTML string.
-  const [vignetteHtml, setVignetteHtml] = useState<string>(() => question.vignette
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
-  const vignetteRef = useRef<HTMLParagraphElement>(null);
+  const [annotationTool, setAnnotationTool] = useState<AnnotationTool | null>(null);
+  const [marks, setMarks] = useState<Record<string, TextMarks>>({});
+  const [crossedOptions, setCrossedOptions] = useState<string[]>([]);
+  const selectionGesture = useRef(false);
 
   // Content container ref — passed to QuestionTutorPanel so its selection
   // detection scope matches this card's content area.
@@ -63,31 +62,54 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   };
 
 
-  const handleHighlight = () => {
+  const annotateSelection = (tool: AnnotationTool) => {
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || selection.toString().trim().length === 0) return;
-
-    // Ensure the selection is actually inside our specific vignette paragraph
+    const content = cardContentRef.current;
+    if (interactionDisabled || isSubmitted || !content || !selection?.rangeCount || !selection.toString().trim()) return false;
     const range = selection.getRangeAt(0);
-    if (!vignetteRef.current?.contains(range.commonAncestorContainer)) return;
+    if (!content.contains(range.commonAncestorContainer)) return false;
+    const changes: { field: string; start: number; end: number }[] = [];
+    content.querySelectorAll<HTMLElement>('[data-annotation-field]').forEach(element => {
+      if (!range.intersectsNode(element)) return;
+      const before = document.createRange();
+      before.selectNodeContents(element);
+      let start = 0, end = element.textContent?.length || 0;
+      if (element.contains(range.startContainer)) {
+        before.setEnd(range.startContainer, range.startOffset);
+        start = before.toString().length;
+      }
+      if (element.contains(range.endContainer)) {
+        before.setEnd(range.endContainer, range.endOffset);
+        end = before.toString().length;
+      }
+      if (end > start) changes.push({ field: element.dataset.annotationField!, start, end });
+    });
+    if (!changes.length) return false;
+    setMarks(previous => {
+      const next = { ...previous };
+      for (const { field, start, end } of changes) next[field] = applyTextMark(previous[field] || emptyMarks(), { start, end }, tool);
+      return next;
+    });
+    selectionGesture.current = true;
+    selection.removeAllRanges();
+    return true;
+  };
 
-    try {
-        const span = document.createElement('mark');
-        span.className = "bg-yellow-200 text-slate-900 rounded-sm px-0.5";
-        
-        // Wrap selected text
-        range.surroundContents(span);
-        
-        // Update state with new HTML so it persists if we re-render (though simple state updates here might need careful handling to not reset DOM)
-        // In this simple implementation, we update state to match DOM.
-        if (vignetteRef.current) {
-            setVignetteHtml(vignetteRef.current.innerHTML);
-        }
-        
-        // Clear selection to avoid confusion
-        selection.removeAllRanges();
-    } catch (e) {
-        console.warn("Highlight failed - likely crossing element boundaries.", e);
+  const renderText = (field: string, text: string) => (
+    <span data-annotation-field={field} className="select-text">
+      {textSegments(text, marks[field] || emptyMarks()).map(segment => {
+        const text = segment.strike ? <s>{segment.text}</s> : segment.text;
+        return segment.highlight
+          ? <mark key={segment.start} className="bg-yellow-200 text-slate-900 rounded-sm">{text}</mark>
+          : <React.Fragment key={segment.start}>{text}</React.Fragment>;
+      })}
+    </span>
+  );
+
+  const finishSelection = () => {
+    if (window.getSelection()?.toString().trim()) {
+      selectionGesture.current = true;
+      if (annotationTool) annotateSelection(annotationTool);
     }
   };
 
@@ -133,46 +155,51 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         )}
       </div>
 
-      <div className="p-6 relative" ref={cardContentRef}>
-        {/* Highlight Tooltip/Button */}
+      <div className="p-6 relative" ref={cardContentRef}
+        onPointerDown={() => { selectionGesture.current = false; }}
+        onMouseUp={finishSelection}
+        onKeyUp={event => { if (event.key === 'Shift') finishSelection(); }}>
         {!isSubmitted && (
-            <div className="absolute top-4 right-4 print:hidden">
-                 <button
-                    disabled={interactionDisabled}
-                    onMouseDown={(e) => { e.preventDefault(); handleHighlight(); }} // Use onMouseDown to prevent losing focus/selection before click
-                    className="p-2 text-slate-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
-                    title="Highlight selected text in vignette"
-                 >
-                     <Highlighter className="w-4 h-4" />
-                 </button>
+            <div className="mb-4 print:hidden" onMouseUp={event => event.stopPropagation()}>
+              <div role="group" aria-label={`Annotation tools for question ${index + 1}`} className="flex flex-wrap items-center gap-2">
+                {([{ tool: 'highlight', label: 'Highlight', Icon: Highlighter }, { tool: 'strike', label: 'Strike out', Icon: Strikethrough }, { tool: 'erase', label: 'Erase', Icon: Eraser }] as const).map(({ tool, label, Icon }) => (
+                  <button key={tool} type="button" disabled={interactionDisabled} aria-pressed={annotationTool === tool}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => { if (!annotateSelection(tool)) setAnnotationTool(current => current === tool ? null : tool); }}
+                    className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm transition-colors ${annotationTool === tool ? 'bg-yellow-100 border-yellow-500 text-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    title={`Select text to ${label.toLowerCase()}, or turn this tool on first`}>
+                    <Icon className="w-4 h-4" />{label}
+                  </button>
+                ))}
+                <button type="button" disabled={interactionDisabled || (!crossedOptions.length && !Object.values(marks).some(mark => mark.highlight.length || mark.strike.length))}
+                  onClick={() => { setMarks({}); setCrossedOptions([]); }} className="px-2 py-2 text-sm text-slate-600 underline disabled:opacity-40">Clear marks</button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500" role="status">{annotationTool ? `${annotationTool === 'highlight' ? 'Highlight' : annotationTool === 'strike' ? 'Strike out' : 'Erase'} is on. Select text to apply; press the tool again to turn it off.` : 'Select text, then choose a tool. Or turn a tool on first.'} Select highlighted text and use Highlight again to remove it.</p>
             </div>
         )}
 
-        {/* Vignette (Rendered as HTML for highlighting support) */}
-        <p 
-            ref={vignetteRef}
-            className="text-slate-800 leading-relaxed mb-4 text-base print:text-black"
-            dangerouslySetInnerHTML={{ __html: vignetteHtml }}
-        />
+        <p className="text-slate-800 leading-relaxed mb-4 text-base print:text-black">{renderText('vignette', question.vignette)}</p>
 
         {/* Lead In */}
         <p className="font-medium text-slate-900 mb-6 italic print:text-black">
-          {question.leadIn}
+          {renderText('leadIn', question.leadIn)}
         </p>
 
         {/* Options */}
         <div className="space-y-3">
           {(['A', 'B', 'C', 'D'] as const).map((opt) => (
+            <div key={opt} className="flex items-stretch gap-2">
             <button
-              key={opt}
-              onClick={() => !isSubmitted && onSelectOption(opt)}
+              onClick={event => { if (!isSubmitted && (event.detail === 0 || (!selectionGesture.current && !window.getSelection()?.toString().trim()))) onSelectOption(opt); }}
               disabled={isSubmitted || interactionDisabled}
-              className={`w-full text-left p-4 rounded-lg border transition-all duration-200 flex items-start gap-3 print:border-gray-300 print:p-2 ${getOptionStyle(opt)}`}
+              aria-label={`Answer ${opt}: ${question.options[opt]}`}
+              aria-pressed={selectedOption === opt}
+              className={`flex-1 min-w-0 text-left p-4 rounded-lg border transition-all duration-200 flex items-start gap-3 print:border-gray-300 print:p-2 ${getOptionStyle(opt)}`}
             >
               <span className={`font-semibold min-w-[1.5rem] print:text-black ${isSubmitted && opt === question.correctAnswer ? 'text-green-700' : 'text-slate-500'}`}>
                 {opt}
               </span>
-              <span className="text-slate-800 print:text-black">{question.options[opt]}</span>
+              <span className={`text-slate-800 print:text-black ${!isSubmitted && crossedOptions.includes(opt) ? 'line-through opacity-60' : ''}`}>{renderText(`option-${opt}`, question.options[opt])}</span>
               {isSubmitted && opt === question.correctAnswer && (
                 <CheckCircle2 className="w-5 h-5 text-green-600 ml-auto flex-shrink-0 print:hidden" />
               )}
@@ -180,6 +207,12 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                 <XCircle className="w-5 h-5 text-red-500 ml-auto flex-shrink-0 print:hidden" />
               )}
             </button>
+            {!isSubmitted && <button type="button" disabled={interactionDisabled}
+              aria-label={`${crossedOptions.includes(opt) ? 'Restore' : 'Cross out'} option ${opt}`} aria-pressed={crossedOptions.includes(opt)}
+              title={`${crossedOptions.includes(opt) ? 'Restore' : 'Cross out'} option ${opt}`}
+              onClick={() => setCrossedOptions(previous => previous.includes(opt) ? previous.filter(value => value !== opt) : [...previous, opt])}
+              className={`self-center rounded-lg border p-2 print:hidden ${crossedOptions.includes(opt) ? 'bg-slate-200 text-slate-800 border-slate-400' : 'text-slate-500 border-slate-200 hover:bg-slate-50'}`}><Strikethrough className="w-4 h-4" /></button>}
+            </div>
           ))}
         </div>
 

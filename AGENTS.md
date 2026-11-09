@@ -36,7 +36,7 @@ MedExam Generator — a Vite + React 19 + TypeScript single-page app that turns 
 - Rules are written generically — they apply to any Temerty block, not just a specific one. When tuning for a specific block, prefer adding to the rules over replacing them.
 
 ## Model roles (do not break this split)
-- **`GEMINI_QUESTION_MODEL` (default `gemini-3.1-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The retired 3.0 ID returned an upstream 404 confirmed in Vercel logs on 2026-09-27; the default now follows the replacement named by that error. A mocked SDK transport check verifies request and response compatibility, not a billable end-to-end generation. All AI handlers are disabled on Vercel preview deployments. Production requires a remotely verified Supabase bearer token and AI_ALLOWED_USER_IDS allowlist.
+- **`GEMINI_QUESTION_MODEL` (default `gemini-3.1-pro-preview`)** — writes exam questions (`generateExam`). Quality-critical. Uses strict `responseSchema` + `thinkingConfig`. The retired 3.0 ID returned an upstream 404 confirmed in Vercel logs on 2026-09-27; the default now follows the replacement named by that error. A mocked SDK transport check verifies request and response compatibility, not a billable end-to-end generation. All AI handlers are disabled on Vercel preview deployments. Production requires a remotely verified Supabase bearer token. All signed-in, non-anonymous accounts have AI access, as requested by Joe on 2026-11-08.
 - **`GEMINI_FLASH_MODEL` (default `gemini-3.8-flash`)** — OCR (`extractTextFromImage`), media transcription (`transcribeMedia`), Deep Dive source verification (`getQuestionSourceAnalysis`), and per-question tutor chat (`api/chat.ts`). Retrieval/extraction/tutoring only — never swap Flash in for question generation.
 - **Transport (`lib/server/geminiClient.ts`)** — prefers Google Cloud Vertex AI (`GOOGLE_VERTEX_CREDENTIALS_JSON`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`) so production calls draw against Google Cloud billing/credits (`ai-assistant-cli-490505`), with fallback to `GEMINI_API_KEY` (`vertexai: false`) when Vertex credentials are absent.
 
@@ -71,7 +71,7 @@ npm run dev       # vite dev server
 npm run build     # production bundle
 ```
 
-See README.md for server-only GEMINI_API_KEY, Supabase configuration and the mandatory AI_ALLOWED_USER_IDS access list. Vite alone does not serve API routes.
+See README.md for server-only GEMINI_API_KEY, Supabase configuration and sign-in requirements. Vite alone does not serve API routes.
 
 ## When in doubt
 - Read `CHANGES.md` first — recent decisions are there.
@@ -85,5 +85,5 @@ See README.md for server-only GEMINI_API_KEY, Supabase configuration and the man
 - `services/localProjects.ts`: IndexedDB recovery. A delayed cloud result must compare against the original local version before replacing the device copy.
 - `services/projectMerge.ts`: completed histories/banks merge by stable ID; conflicting immutable records stop the merge. A settings-only copy cannot erase an unfinished exam. `storageService.ts` isolates per-project conflicts into local recovery copies and uses existing-column compare-and-swap. No migration required.
 - `components/ProjectExamTools.tsx`: the same project hosts original-bank practice, new imports, shared recipe, external packet and history restoration. Device-marked shared projects require explicit cloud-import approval. The Save to account action preserves all state and Gemini consent, keeps the local original, and switches only after a successful cloud save.
-- `lib/server/aiAuth.ts`: required remote token verification + owner allowlist before model access on every paid route. Preview disables all AI, even with override variables. Never use display_name or the public invite code as AI authorization.
+- `lib/server/aiAuth.ts`: required remote token verification before model access on every paid route; all signed-in accounts are eligible. Preview disables all AI, even with override variables. Never use display_name or the public invite code as AI authorization.
 - Clinical material stays outside this public repository. Structural validation and mocked transport tests do not certify live generation or clinical quality.
