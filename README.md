@@ -47,10 +47,10 @@ Vercel environment variables:
 
 - `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`: browser account access. Server auth can use these or `SUPABASE_URL` / `SUPABASE_ANON_KEY`.
 - `GEMINI_API_KEY`: server only, never a `VITE_` variable.
-- `AI_ALLOWED_USER_IDS`: required comma-separated account IDs for owner-approved built-in AI. Empty fails closed; new sign-ups do not automatically gain access to the owner's key.
+- Built-in AI is available to every signed-in, non-anonymous account. The legacy `AI_ALLOWED_USER_IDS` setting is no longer used.
 - `GEMINI_QUESTION_MODEL`: optional Pro model override. Default `gemini-3.1-pro-preview`; retrieval/transcription/tutor routes retain Flash.
 
-All four paid endpoints validate the bearer token with Supabase and enforce the allowlist before calling Gemini. Preview deployments disable AI. The shared question-writing rules are in `lib/examRules.ts`; `services/generationPrompt.ts` supplies the same project context to built-in generation and the external packet.
+All four paid endpoints validate the bearer token with Supabase before calling Gemini. Preview deployments disable AI. The shared question-writing rules are in `lib/examRules.ts`; `services/generationPrompt.ts` supplies the same project context to built-in generation and the external packet.
 
 This repository is public. Never commit private references, course objectives, recalls, imported exams, project files or backups. Use synthetic fixtures for tests. See `AGENTS.md` for implementation invariants and `CHANGELOG.md` for validation limits.
 

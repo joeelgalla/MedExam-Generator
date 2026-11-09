@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-08 - Reversible annotations and AI access for all accounts
+
+Joe requested highlight-before-select, unhighlighting and strikethrough, then explicitly requested Gemini access for everybody. Replaced vignette DOM wrapping with plain-text offset annotations: persistent tool selection, selection-first toggles, partial erasing, overlapping highlights/strikes, lead-in/option support, and independent choice elimination. Answer selection is suppressed during drag selection; keyboard answer selection remains available. Annotation state remains local to the mounted question, like the previous highlighter.
+
+Removed the owner AI allowlist from the shared authorization check. Every remotely verified, signed-in non-anonymous account can use generation, tutor, source analysis and OCR; preview disabling and token validation remain. No database or provider changes. Regression tests cover the updated access policy, invalid/anonymous token denial, and annotation overlap/removal. 102 tests, typecheck and build pass. Isolated Chrome exercised eleven interaction/layout checks at desktop and 390px; only the existing missing favicon warning occurred. Deployment/readback pending. Private QA artifacts are outside this public repo.
+
+
 ## 2026-11-08 - Added Vertex AI authentication and upgraded Flash routes to Gemini 3.8 Flash
 
 Added `lib/server/geminiClient.ts` so `/api/generate`, `/api/analyze`, `/api/chat`, `/api/ocr`, and `/api/ai-status` authenticate against Google Cloud Vertex AI when `GOOGLE_VERTEX_CREDENTIALS_JSON` is configured, avoiding the depleted AI Studio prepay wallet while retaining `GEMINI_API_KEY` fallback. Upgraded `/api/analyze`, `/api/chat`, and `/api/ocr` from deprecated `gemini-2.5-flash` to `gemini-3.8-flash` (`GEMINI_FLASH_MODEL`) and kept `gemini-3.1-pro-preview` (`GEMINI_QUESTION_MODEL`) for `/api/generate` and blind answer verification. Added unit and source-analysis regression tests; 99 tests, TypeScript, and production build pass.
