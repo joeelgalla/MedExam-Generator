@@ -1,5 +1,17 @@
 # Handoff
 
+## 2026-11-09 - Fixes from the Fable 5.2 audit (deployed)
+
+Joe: "if you spotted an issue, then fix it". From `Fable full audit.md` (Clerkship review folder, 2026-11-09):
+- **Changed sets no longer count as done.** `changedSinceAttempt` (`services/examStatus.ts`) compares each saved question's stem, lead-in, options and key with the copy stored in the attempt (explanation-only edits ignored). If more than half are new or rewritten, the card shows "Changed since your N/M", a blue Start button and "X of Y questions new or rewritten", and it leaves the "done" count. On Joe's data: Set 3 (17/20 changed) and Set 10 (5/9) flip; Sets 11 and 12 (0 changed) stay done (SQL check, same rule).
+- **Phone exam screen:** the pinned timer bar is one line on small screens; the reminder sentence shows from `sm` up. The floating Feedback button is hidden on phones inside the workspace (it covered question text and cross-out buttons).
+- **Results:** an unanswered question now reads "Unanswered: no answer chosen" in amber, not red. The header reads "Results: {set}". Both finish buttons say "Finish exam".
+- **Reports:** `reportItemId` is now `{examId}:{itemId}`, so a report on a Set 11 copy no longer overwrites the original's row; re-reporting clears `resolution_note`. Both tables were empty, so no data migration.
+- **Docs:** README and AGENTS model lines now match the code (`gemini-3.8-flash` for both variables); "Preserve the Flash/Pro split" and "read CHANGES.md first" removed.
+- **CI:** `.github/workflows/ci.yml` runs typecheck, tests and build on every push (Vercel deploys independently).
+
+Not changed, by decision: the AI spending cap and closing open sign-up (server/auth changes that could cut Joe off from the tutor the night before the exam; first thing after it), Progress counting repeated questions per attempt (each answer is a real data point), the Progress layout rewrite, and the task tags Joe asked for on 8 Nov. 113/113 tests, typecheck and build pass. Data fixes made the same hour are in the Clerkship Psychiatry handoff (S6Q12, S7Q5 and S10Q2 explanations corrected to the course rule).
+
 ## 2026-11-09 - Notes on flagged questions (deployed)
 
 Joe asked to add a comment when flagging, "so I know and remember why I flagged something". When a question is flagged during an exam, a quiet "Add note" button (orange, beside Flagged) opens a popover anchored to the question header ("Why did you flag this?"); saving shows a "Why you flagged it: …" line at the top of the question, on the results page and in the Progress review row for that attempt. A blank note deletes it. Notes are private (not for Claude review; that is `question_reports`).

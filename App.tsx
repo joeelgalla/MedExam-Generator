@@ -730,7 +730,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 print:mb-8">
                  <div className="print:hidden">
                     <h3 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        {activeExam.status === 'completed' ? `${examTitle||'Exam'} results` : examTitle||'Active exam'}
+                        {activeExam.status === 'completed' ? `Results: ${examTitle||'exam'}` : examTitle||'Active exam'}
                         {activeExam.difficulty === 'expert' && <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-bold uppercase">Expert</span>}
                         {activeExam.difficulty === 'hard' && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full font-bold uppercase">Hard</span>}
                     </h3>
@@ -769,7 +769,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                          disabled={otherTab}
                          className="flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm hover:shadow"
                          >
-                             <CheckCheck className="w-4 h-4" /> Finish Exam
+                             <CheckCheck className="w-4 h-4" /> Finish exam
                          </button>
                      )}
                  </div>
@@ -832,7 +832,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
                          disabled={otherTab}
                          className="flex items-center gap-2 px-8 py-4 text-lg font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                          >
-                             <CheckCheck className="w-5 h-5" /> Finish & Submit Exam
+                             <CheckCheck className="w-5 h-5" /> Finish exam
                          </button>
                     </div>
                 )}
@@ -850,7 +850,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
       {!isAdmin && (
         <button 
             onClick={() => setShowFeedback(true)}
-            className="fixed bottom-6 right-6 bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-40 flex items-center gap-2 group print:hidden"
+            className="fixed bottom-6 right-6 bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-40 hidden sm:flex items-center gap-2 group print:hidden"
         >
             <MessageSquare className="w-6 h-6" />
             <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 whitespace-nowrap font-medium text-sm">Feedback</span>

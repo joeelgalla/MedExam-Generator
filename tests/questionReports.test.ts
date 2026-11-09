@@ -9,7 +9,7 @@ const question=(itemId?:string)=>({id:3,vignette:'v'.repeat(400),leadIn:'Which n
 
 test('a report row keeps the context needed to review the question',()=>{
   const row=buildReportRow('project-1',{question:question('item-9'),where:'results',selectedOption:'B',attemptId:'attempt-1',examId:'exam-1',examTitle:'Synthetic set'},'  key looks wrong  ');
-  assert.equal(row.item_id,'item-9');
+  assert.equal(row.item_id,'exam-1:item-9');
   assert.equal(row.comment,'key looks wrong');
   assert.equal(row.selected_option,'B');
   assert.equal(row.exam_title,'Synthetic set');

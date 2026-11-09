@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Fixes from the Fable audit
+
+Sets rewritten since an attempt show "Changed since your score" instead of Done; one-line timer on phones and no floating Feedback button over questions; amber "Unanswered"; "Results: {set}" header; one "Finish exam" label; reports keyed per set; model lines in README and AGENTS corrected; CI added. 113 tests, typecheck and build pass.
+
 ## 2026-11-09 - Notes on flagged questions
 
 Flagging a question during an exam now offers "Add note" for a private reason; the note shows on the question, in results and in Progress. Stored in a new `flag_notes` table with row-level security. 112 tests, typecheck and build pass.

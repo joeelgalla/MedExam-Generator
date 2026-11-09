@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {createRequire} from 'node:module';
 import type {ExamAttempt,ExamQuestion,SavedExam} from '../types.ts';
-import {linkAttemptsToExams,latestAttemptByExam} from '../services/examStatus.ts';
+import {linkAttemptsToExams,latestAttemptByExam,changedSinceAttempt} from '../services/examStatus.ts';
 
 // Synthetic IDs only. The shapes mirror a bank where later sets reuse
 // questions from earlier ones.
@@ -75,4 +75,32 @@ test('exam cards show which sets are done and previous attempts name their set',
   assert.match(attempts,/3\/4 correct/);
   assert.match(html,/Resume Synthetic open set/,'unfinished attempts use the set\'s current name');
   assert.doesNotMatch(html,/Old synthetic name/);
+});
+
+test('a set rewritten since the attempt is not counted as done',async()=>{
+  const q=(ids:string[],stem='same')=>ids.map((itemId,i)=>({id:i+1,vignette:stem,leadIn:'L',options:{A:'1',B:'2',C:'3',D:'4'},correctAnswer:'A',explanation:'x',metadata:{itemId}}));
+  assert.equal(changedSinceAttempt(q(['a','b','c']),q(['a','b','c'])),0);
+  assert.equal(changedSinceAttempt(q(['a','b','c','d']),q(['a','b','c'])),1,'a new question counts');
+  assert.equal(changedSinceAttempt(q(['a','b']),q(['a','b'],'old stem')),2,'a rewritten stem counts');
+  const edited=q(['a','b']).map(x=>({...x,explanation:'new explanation'}));
+  assert.equal(changedSinceAttempt(edited,q(['a','b'])),0,'explanation-only edits do not count');
+  const bundle=await build({stdin:{contents:`
+    import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server';
+    import ProjectExamTools from './components/ProjectExamTools';
+    import {importProject} from './services/projectWorkflow';
+    const q=(ids,stem)=>ids.map((itemId,i)=>({id:i+1,vignette:stem,leadIn:'',options:{A:'1',B:'2',C:'3',D:'4'},correctAnswer:'A',explanation:'',metadata:{itemId,losTested:[],cluster:''}}));
+    const p=importProject({name:'Synthetic rewrite',blueprint:[],referenceTotalQuestions:40,learningObjectivesFiles:[]},'local','local');
+    p.savedExams=[{format:'medexam-exam',version:1,examId:'rw',title:'Synthetic rewritten set',durationMinutes:6,instructions:'',questions:q(['a1','a2','a3','a4'],'new')}];
+    p.examHistory=[{id:'att',date:'2026-01-01T12:00:00Z',score:3,totalQuestions:4,answers:{},questions:q(['a1','a2','a3','a4'],'old')}];
+    const props={onUpdate:()=>{},onStart:()=>{},onError:()=>{},onGenerate:()=>{},onResume:()=>{},onMaterials:()=>{},onProgress:()=>{},onActionConsumed:()=>{},disabled:false};
+    export const html=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
+  `,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
+  const module={exports:{} as Record<string,string>};
+  new Function('require','module','exports',bundle.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
+  const html=module.exports.html.replace(/<!-- -->/g,'');
+  assert.match(html,/0 of 1 done/);
+  assert.match(html,/Changed since your 3\/4/);
+  assert.match(html,/4 of 4 questions new or rewritten/);
+  assert.match(html,/Start exam/);
+  assert.doesNotMatch(html,/Done ·|Retake exam/);
 });

@@ -20,7 +20,7 @@ Shared files can be imported into your account after confirming the cloud upload
 
 Generation plans knowledge objectives from the project registry, prioritizing missed or blank submitted answers and tasks not yet assessed. **Progress → Practise gaps and recent misses** opens this mode directly. Each set uses up to six topics with complete chapters, rotating through remaining topics over later sets. The coverage view includes objectives with no question yet and separately identifies performance skills; one correct item is not whole-objective mastery.
 
-Before a generated set is saved, a separate Pro solve receives unlabelled choices and the study text, without the writer’s answer or explanation. Exact source passages, mapped objectives, criteria and distractors are checked; passing items can be retained when others fail. Excluded tasks remain gaps, and there are no automatic paid retries. Feedback and quoted passages are available after submission and in past-question review. This is an AI check against uploaded text, not clinical certification or a guarantee of real-exam difficulty. Imported external exams retain their import validation; they do not automatically receive this provider check.
+Before a generated set is saved, a separate blind solve (the question model, `gemini-3.8-flash` by default) receives unlabelled choices and the study text, without the writer’s answer or explanation. Exact source passages, mapped objectives, criteria and distractors are checked; passing items can be retained when others fail. Excluded tasks remain gaps, and there are no automatic paid retries. Feedback and quoted passages are available after submission and in past-question review. This is an AI check against uploaded text, not clinical certification or a guarantee of real-exam difficulty. Imported external exams retain their import validation; they do not automatically receive this provider check.
 
 ## Data and compatibility
 
@@ -48,7 +48,7 @@ Vercel environment variables:
 - `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`: browser account access. Server auth can use these or `SUPABASE_URL` / `SUPABASE_ANON_KEY`.
 - `GEMINI_API_KEY`: server only, never a `VITE_` variable.
 - Built-in AI is available to every signed-in, non-anonymous account. The legacy `AI_ALLOWED_USER_IDS` setting is no longer used.
-- `GEMINI_QUESTION_MODEL`: optional Pro model override. Default `gemini-3.1-pro-preview`; retrieval/transcription/tutor routes retain Flash.
+- `GEMINI_QUESTION_MODEL`: optional override for question writing and the blind checker. Default `gemini-3.8-flash`. `GEMINI_FLASH_MODEL` (also `gemini-3.8-flash` by default) covers retrieval, transcription and the tutor.
 
 All four paid endpoints validate the bearer token with Supabase before calling Gemini. Preview deployments disable AI. The shared question-writing rules are in `lib/examRules.ts`; `services/generationPrompt.ts` supplies the same project context to built-in generation and the external packet.
 

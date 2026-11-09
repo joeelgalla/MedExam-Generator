@@ -39,8 +39,9 @@ export interface ReportStore {
 
 export const MAX_REPORT_COMMENT = 2000;
 
+// Keyed per set, so a report on a copied question (Set 11 copies earlier items) does not overwrite the original's.
 export const reportItemId = (question: ExamQuestion, examId: string | null) =>
-  question.metadata.itemId || `${examId || 'exam'}:${question.id}`;
+  `${examId || 'exam'}:${question.metadata.itemId || question.id}`;
 
 export function buildReportRow(projectId: string, target: ReportTarget, comment: string): QuestionReport {
   const q = target.question;

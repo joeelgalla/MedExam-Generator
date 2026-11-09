@@ -230,9 +230,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         {isSubmitted && (
             <div className="mt-6 print:hidden">
                 <div 
-                    className={`flex items-center gap-2 mb-2 font-semibold ${selectedOption === question.correctAnswer ? 'text-green-600' : 'text-red-500'}`}
+                    className={`flex items-center gap-2 mb-2 font-semibold ${selectedOption === question.correctAnswer ? 'text-green-600' : selectedOption ? 'text-red-500' : 'text-amber-600'}`}
                 >
-                    {selectedOption === question.correctAnswer ? 'Correct' : selectedOption ? 'Incorrect' : 'Unanswered'}
+                    {selectedOption === question.correctAnswer ? 'Correct' : selectedOption ? 'Incorrect' : 'Unanswered: no answer chosen'}
                 </div>
                 
                 <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 animate-fadeIn">

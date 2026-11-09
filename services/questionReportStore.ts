@@ -14,7 +14,7 @@ export const supabaseReportStore: ReportStore = {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) throw new Error('Sign in to mark questions for review');
     const { data, error } = await supabase.from('question_reports')
-      .upsert({ ...row, user_id: session.user.id, status: 'open', updated_at: new Date().toISOString() }, { onConflict: 'user_id,project_id,item_id' })
+      .upsert({ ...row, user_id: session.user.id, status: 'open', resolution_note: null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,project_id,item_id' })
       .select(columns).single();
     if (error) throw new Error(error.message);
     return data as QuestionReport;

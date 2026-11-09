@@ -39,3 +39,14 @@ export function latestAttemptByExam(project:ExamSource,links=linkAttemptsToExams
   }
   return latest;
 }
+
+type Snapshot={vignette?:string;leadIn?:string;options?:Record<string,string>;correctAnswer?:string;metadata?:{itemId?:string}};
+const questionSignature=(q:Snapshot)=>JSON.stringify([q.vignette||'',q.leadIn||'',['A','B','C','D'].map(k=>q.options?.[k]||''),q.correctAnswer||'']);
+
+// How many of a set's questions are new, or have a different stem, lead-in,
+// options or key from the copy saved with the attempt. Explanation-only edits
+// do not count. Item IDs survive rewrites, so matching alone cannot tell.
+export function changedSinceAttempt(examQuestions:Snapshot[],attemptQuestions:Snapshot[]):number {
+  const taken=new Map(attemptQuestions.map(q=>[q.metadata?.itemId,questionSignature(q)]));
+  return examQuestions.filter(q=>{const before=q.metadata?.itemId?taken.get(q.metadata.itemId):undefined;return before===undefined||before!==questionSignature(q);}).length;
+}
