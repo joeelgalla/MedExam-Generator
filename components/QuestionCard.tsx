@@ -6,6 +6,8 @@ import { applyTextMark, emptyMarks, textSegments, type AnnotationTool, type Text
 import QuestionTutorPanel from './QuestionTutorPanel';
 import SourcePassages from './SourcePassages';
 
+const cognitiveLabels: Record<string, string> = { '1.1': 'Recall', '1.2': 'Understanding', '1.3': 'Application' };
+
 interface QuestionCardProps {
   question: ExamQuestion;
   index: number;
@@ -123,22 +125,23 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
           <BookOpen className="w-3 h-3" /> {question.metadata.week ? `Week ${question.metadata.week}` : question.metadata.cluster}
         </div>
         <div className="flex items-center gap-1 print:hidden">
-          <BrainCircuit className="w-3 h-3" /> Level {question.metadata.cognitiveLevel}
-        </div>
-        <div className="flex items-center gap-1 print:hidden">
           <Tag className="w-3 h-3" /> {question.metadata.cluster}
-        </div>
+        </div></>}
+        <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-blue-800 print:hidden"
+          title="Cognitive demand recorded for this question; not a difficulty rating">
+          <BrainCircuit className="w-3 h-3" /> {cognitiveLabels[question.metadata.cognitiveLevel] || 'Level'} · {question.metadata.cognitiveLevel}
+        </span>
         <span className="bg-slate-200 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold print:hidden">
           {question.metadata.subtype.replace(/_/g, ' ')}
         </span>
-        {question.metadata.isMaintenance && (
+        {!hideMetadata && question.metadata.isMaintenance && (
           <span
             className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold print:hidden"
             title="You aced this topic earlier — we're checking it's still solid."
           >
             <RefreshCw className="w-3 h-3" /> Maintenance
           </span>
-        )}</>}
+        )}
         {hideMetadata && question.metadata.caseId && <span>Shared case</span>}
         
         {/* Flag Button */}

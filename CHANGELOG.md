@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-08 - Restored exam task tags and enforced harder generation
+
+Cognitive-level names (Recall, Understanding, Application) and question subtypes are visible during active cloud and standalone exams again. Topic/objective hints remain post-submit. The generation checker now classifies cognitive level and subtype independently and replaces writer labels; hard/expert generation rejects items assessed as foundational. Writer instructions explicitly reject tone-based elimination and require answer-determining case details. No fixed cognitive quotas or claim of validated ME difficulty.
+
+103 tests, TypeScript and production build pass. The separate annotation/all-account-AI change is deployed as PR19 / 6beed57 and eleven production Chrome checks pass. Only the existing favicon 404 occurred. Private Psychiatry-bank difficulty/metadata revision is separate from this public code change.
+
+
 ## 2026-11-08 - Reversible annotations and AI access for all accounts
 
 Joe requested highlight-before-select, unhighlighting and strikethrough, then explicitly requested Gemini access for everybody. Replaced vignette DOM wrapping with plain-text offset annotations: persistent tool selection, selection-first toggles, partial erasing, overlapping highlights/strikes, lead-in/option support, and independent choice elimination. Answer selection is suppressed during drag selection; keyboard answer selection remains available. Annotation state remains local to the mounted question, like the previous highlighter.

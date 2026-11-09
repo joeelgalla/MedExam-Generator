@@ -12,7 +12,7 @@ async function verifier() {
 }
 const quote='Adding red and blue counters gives the total number of counters.';
 const files=[{id:'source',name:'Synthetic fixture',content:'[Original handbook PDF page 7]\n'+quote,type:'txt',size:100}];
-const check=(q:any)=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,homogeneousOptions:true,difficulty:'appropriate',reasoning:'Add the two sets to obtain the total.',optionFeedback:Object.values(q.options).map(n=>({optionText:n,plausibleAlternative:true,whenAppropriate:'The total would be correct if the groups contained different counts.',reason:`The proposed count is ${n}. Hepatitis B is a medical name, not an option label.`})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:files[0].name,quote}]});
+const check=(q:any)=>({id:q.id,answerText:q.options[q.correctAnswer],objectiveFits:true,recheckFits:true,homogeneousOptions:true,difficulty:'appropriate',cognitiveLevel:'1.3',subtype:'criteria_or_score',reasoning:'Add the two sets to obtain the total.',optionFeedback:Object.values(q.options).map(n=>({optionText:n,plausibleAlternative:true,whenAppropriate:'The total would be correct if the groups contained different counts.',reason:`The proposed count is ${n}. Hepatitis B is a medical name, not an option label.`})),criteriaChecks:[{claim:'Combine both groups to find the total.',title:'Synthetic fixture',sourceQuote:quote,satisfied:true}],evidence:[{title:files[0].name,quote}]});
 test('blind checking hides keys and rationales, rejects disagreement and ambiguous answers, and binds feedback during key balancing',async()=>{
  const {verifyDraft}=await verifier();const qs=parseProjectExam(fixture()).questions;
  qs[0].explanation='WRITER_KEY_DO_NOT_EXPOSE';
@@ -39,6 +39,16 @@ test('reference-note evidence remains labelled through checking and exam import'
  assert.equal(checked.metadata.sources[0].kind,'supplement');
  original.questions[0]=checked;
  assert.equal(parseProjectExam(original).questions[0].metadata.sources?.[0].kind,'supplement');
+});
+test('hard requests exclude foundational questions and use the independently checked cognitive labels',async()=>{
+ const {reviewedQuestion}=await verifier();const q=parseProjectExam(fixture()).questions[0];
+ assert.throws(()=>reviewedQuestion(q,{...check(q),difficulty:'foundational'},files,'hard'),/foundational/);
+ assert.throws(()=>reviewedQuestion(q,{...check(q),difficulty:'foundational'},files,'expert'),/foundational/);
+ assert.equal(reviewedQuestion(q,{...check(q),difficulty:'foundational'},files,'standard').metadata.cognitiveLevel,'1.3');
+ const result=reviewedQuestion(q,check(q),files,'hard');
+ assert.equal(result.metadata.cognitiveLevel,'1.3');
+ assert.equal(result.metadata.subtype,'criteria_or_score');
+ assert.throws(()=>reviewedQuestion(q,{...check(q),cognitiveLevel:undefined},files),/classify/);
 });
 test('a failed checking service is reported distinctly and never retried; a mismatched recheck cannot resolve a miss',async()=>{
  const {verifyDraft}=await verifier();const q=parseProjectExam(fixture()).questions[0];let calls=0;
