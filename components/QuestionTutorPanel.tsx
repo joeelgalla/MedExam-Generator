@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ExamQuestion, ChatMessage } from '../types';
-import { BookOpen, Search, Loader2, MessageSquare, Send, Sparkles } from 'lucide-react';
+import { BookOpen, Search, Loader2, MessageSquare, Send, Sparkles, X } from 'lucide-react';
 
 // Tiny markdown-lite renderer for assistant messages. Handles **bold** header
 // lines and `- ` bullets — no react-markdown dep. Exported so other places
@@ -43,6 +43,11 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
   const [deepDiveContent, setDeepDiveContent] = useState<string | null>(null);
   const [deepDiveError, setDeepDiveError] = useState<string | null>(null);
 
+  // The chat stays closed until asked for, so a reviewed question shows its
+  // explanation first. Closing it keeps the conversation.
+  const [chatOpen, setChatOpen] = useState(false);
+  const focusChatOnOpen = useRef(false);
+
   // Chat state (ephemeral — lost on reload; not persisted to Supabase).
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
@@ -54,6 +59,13 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
   // Floating "Ask about this" popup. Uses viewport-fixed positioning so it
   // works regardless of container overflow/scroll.
   const [selectionPopup, setSelectionPopup] = useState<{ text: string; top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (chatOpen && focusChatOnOpen.current) {
+      focusChatOnOpen.current = false;
+      chatInputRef.current?.focus();
+    }
+  }, [chatOpen]);
 
   // Auto-scroll chat to latest message
   useEffect(() => {
@@ -157,39 +169,47 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
     setSelectionPopup(null);
     window.getSelection()?.removeAllRanges();
     setChatInput(`What is the significance of "${selText}" in this question?`);
-    setTimeout(() => chatInputRef.current?.focus(), 0);
+    if (chatOpen) setTimeout(() => chatInputRef.current?.focus(), 0);
+    else { focusChatOnOpen.current = true; setChatOpen(true); }
   };
 
   return (
     <>
-      {/* Deep Dive trigger + states */}
-      {!deepDiveContent && !isDeepDiving && !deepDiveError && (
-        <div className="flex justify-end mb-2">
-          <button
+      {/* Closed-state controls: Deep Dive trigger + open the tutor chat */}
+      {((!deepDiveContent && !isDeepDiving && !deepDiveError) || !chatOpen) && (
+        <div className="flex flex-wrap justify-end gap-2 print:hidden">
+          {!deepDiveContent && !isDeepDiving && !deepDiveError && <button
             onClick={handleDeepDiveClick}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm"
           >
             <Search className="w-3 h-3" /> Find supporting passages
-          </button>
+          </button>}
+          {!chatOpen && <button
+            onClick={() => { focusChatOnOpen.current = true; setChatOpen(true); }}
+            aria-expanded={false}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full hover:bg-indigo-100 transition-colors border border-indigo-200 shadow-sm"
+          >
+            <MessageSquare className="w-3 h-3" /> Ask the AI Tutor{chatMessages.length ? ` (${chatMessages.length})` : ''}
+          </button>}
         </div>
       )}
 
       {deepDiveError && (
-        <div role="alert" className="mt-2 p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <div role="alert" className="w-full basis-full mt-2 p-4 bg-amber-50 rounded-lg border border-amber-200">
           <p className="text-sm text-amber-950">{deepDiveError}</p>
           <button onClick={handleDeepDiveClick} disabled={isDeepDiving} className="mt-2 text-sm font-semibold text-blue-700 underline disabled:opacity-50">Retry source analysis</button>
         </div>
       )}
 
       {isDeepDiving && (
-        <div className="mt-2 p-4 bg-blue-50 rounded-lg border border-blue-100 flex items-center justify-center gap-3 animate-pulse">
+        <div className="w-full basis-full mt-2 p-4 bg-blue-50 rounded-lg border border-blue-100 flex items-center justify-center gap-3 animate-pulse">
           <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
           <span className="text-xs text-blue-800 font-medium">Scanning source files for evidence...</span>
         </div>
       )}
 
       {deepDiveContent && (
-        <div className="mt-2 p-4 bg-blue-50/50 rounded-lg border border-blue-200 animate-slideUp">
+        <div className="w-full basis-full mt-2 p-4 bg-blue-50/50 rounded-lg border border-blue-200 animate-slideUp">
           <h5 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-2">
             <BookOpen className="w-3 h-3" /> Source Analysis
           </h5>
@@ -198,10 +218,14 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
       )}
 
       {/* AI Tutor Chat */}
-      <div ref={chatPanelRef} className="mt-3 p-4 bg-indigo-50/40 rounded-lg border border-indigo-200 print:hidden">
-        <h5 className="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2 flex items-center gap-2">
-          <MessageSquare className="w-3 h-3" /> Ask the AI Tutor
-        </h5>
+      {chatOpen && <div ref={chatPanelRef} className="w-full basis-full mt-3 p-4 bg-indigo-50/40 rounded-lg border border-indigo-200 print:hidden">
+        <div className="flex items-center justify-between mb-2">
+          <h5 className="text-xs font-bold text-indigo-800 uppercase tracking-wider flex items-center gap-2">
+            <MessageSquare className="w-3 h-3" /> Ask the AI Tutor
+          </h5>
+          <button onClick={() => setChatOpen(false)} aria-label="Close the AI tutor" title="Close (keeps the conversation)"
+            className="p-1 rounded text-indigo-700 hover:bg-indigo-100"><X className="w-3.5 h-3.5" /></button>
+        </div>
         <p className="text-xs text-slate-500 mb-3">
           Follow-up questions about this question. Select any text above and tap "Ask about this" to ask about a specific phrase.
         </p>
@@ -250,7 +274,7 @@ const QuestionTutorPanel: React.FC<Props> = ({ question, onDeepDive, onChatSend,
             <Send className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Floating "Ask about this" button (viewport-fixed) */}
       {selectionPopup && (

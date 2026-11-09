@@ -4,7 +4,7 @@ import { ExamQuestion, ChatMessage } from '../types';
 import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Flag, Highlighter, RefreshCw, Strikethrough, Eraser } from 'lucide-react';
 import { applyTextMark, emptyMarks, textSegments, type AnnotationTool, type TextMarks } from '../services/textAnnotations';
 import QuestionTutorPanel from './QuestionTutorPanel';
-import SourcePassages from './SourcePassages';
+import ReviewSources from './ReviewSources';
 
 const cognitiveLabels: Record<string, string> = { '1.1': 'Recall', '1.2': 'Understanding', '1.3': 'Application' };
 
@@ -121,9 +121,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Header Metadata */}
       <div className={`px-6 py-3 border-b flex flex-wrap gap-3 items-center text-xs text-slate-600 print:bg-transparent print:border-b print:border-gray-300 ${isFlagged ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
         <span className="font-bold text-slate-900 text-sm">Q{index + 1}</span>
-        {!hideMetadata && <><div className="flex items-center gap-1 print:hidden">
-          <BookOpen className="w-3 h-3" /> {question.metadata.week ? `Week ${question.metadata.week}` : question.metadata.cluster}
-        </div>
+        {!hideMetadata && <>{Boolean(question.metadata.week) && <div className="flex items-center gap-1 print:hidden">
+          <BookOpen className="w-3 h-3" /> Week {question.metadata.week}
+        </div>}
         <div className="flex items-center gap-1 print:hidden">
           <Tag className="w-3 h-3" /> {question.metadata.cluster}
         </div></>}
@@ -233,22 +233,16 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                     <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
                     {question.explanation}
                     </p>
-                    <SourcePassages question={question}/>
-                    <div className="mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
-                        {question.metadata.coverageNote && <p className="mb-2">Task sampled: {question.metadata.coverageNote}</p>}
-                        <span>LOs Tested: {question.metadata.losTested.join(', ')}</span>
-                        {Boolean(question.metadata.objectiveIds?.length) && <p className="mt-1">Primary objective: {question.metadata.objectiveIds![0]}{question.metadata.objectiveIds!.length>1?` · Related: ${question.metadata.objectiveIds!.slice(1).join(', ')}`:''}</p>}
-                        {question.metadata.sources?.map((s,i)=><p className="mt-1" key={i}>{s.kind==='supplement'&&<span className="font-medium text-amber-900">Supplemental reference · </span>}{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.title}</a>:s.title}{s.page?` · p. ${s.page}`:''}</p>)}
-                    </div>
-
-                    {!privatePractice && <div className="mt-3">
-                        <QuestionTutorPanel
+                    {/* Sources, objectives and the tutor stay folded until asked for */}
+                    <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-start gap-x-3 gap-y-2">
+                        <div className="flex-1 min-w-[12rem]"><ReviewSources question={question}/></div>
+                        {!privatePractice && <QuestionTutorPanel
                             question={question}
                             onDeepDive={onDeepDive}
                             onChatSend={onChatSend}
                             contentRef={cardContentRef}
-                        />
-                    </div>}
+                        />}
+                    </div>
                 </div>
             </div>
         )}

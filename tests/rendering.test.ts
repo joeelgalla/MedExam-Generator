@@ -29,10 +29,28 @@ test('legacy cloud cards retain tutor controls; private cards hide hints and esc
   assert.doesNotMatch(review, /Find supporting passages|AI Tutor/);
   assert.match(review,/Passage from the study material/);assert.match(review,/Synthetic task sampled/);
   assert.doesNotMatch(review,/<script>example/);assert.match(review,/&lt;script&gt;example/);
+  // Review stays compact: sources folded in one closed disclosure, tutor chat closed until asked for.
+  assert.equal((cloud.match(/<details/g)||[]).length,1);assert.doesNotMatch(cloud,/<details open/);
+  assert.doesNotMatch(cloud,/Question for the AI tutor/);
+  assert.equal((cloud.match(/Synthetic material/g)||[]).length,1);
   for (const html of [cloud, active, review]) {
     assert.doesNotMatch(html, /<img src=x/);
     assert.match(html, /&lt;img/);
   }
+});
+
+test('a reviewed question without a week does not repeat its cluster in the header', async () => {
+  const bundle = await build({ stdin: { contents: `
+    import React from 'react';
+    import { renderToStaticMarkup } from 'react-dom/server';
+    import QuestionCard from './components/QuestionCard';
+    const q = {id:1,vignette:'v',leadIn:'l',options:{A:'One',B:'Two',C:'Three',D:'Four'},correctAnswer:'A',explanation:'e',metadata:{losTested:['o'],cluster:'Only once cluster',week:0,subtype:'diagnosis',cognitiveLevel:'1.3'}};
+    export const html=renderToStaticMarkup(<QuestionCard question={q} index={0} selectedOption={'A'} isFlagged={false} onSelectOption={()=>{}} onToggleFlag={()=>{}} onDeepDive={async()=>''} onChatSend={async()=>''} isSubmitted />);
+  `, resolveDir: process.cwd(), loader: 'tsx' }, bundle: true, platform: 'node', format: 'cjs', write: false, packages: 'external' });
+  const module = { exports: {} as Record<string, string> };
+  new Function('require', 'module', 'exports', bundle.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
+  assert.equal((module.exports.html.match(/Only once cluster/g)||[]).length, 1);
+  assert.doesNotMatch(module.exports.html, /Week/);
 });
 
 test('every API handler returns before model access on a preview deployment', async () => {

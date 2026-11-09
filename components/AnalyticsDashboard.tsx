@@ -2,7 +2,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ExamAttempt, ExamQuestion, ChatMessage, ObjectiveRegistry } from '../types';
 import QuestionTutorPanel from './QuestionTutorPanel';
-import SourcePassages from './SourcePassages';
+import ReviewSources from './ReviewSources';
 import {studyItemKey} from '../services/objectiveCoverage';
 import {
   BarChart3,
@@ -155,26 +155,16 @@ const ReviewRowExpanded: React.FC<ReviewRowExpandedProps> = ({ item, userAnswerT
           <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.explanation}</p>
         </div>
       )}
-      {item.question.metadata.coverageNote&&<p className="text-xs text-slate-600">Task sampled: {item.question.metadata.coverageNote}</p>}
-      <SourcePassages question={item.question}/>
-      {(item.question.metadata.losTested || []).length > 0 && (
-        <div className="text-xs text-slate-500">
-          <span className="font-medium text-slate-600">LOs tested:</span> {item.question.metadata.losTested.join(', ')}
-        </div>
-      )}
-      {item.question.metadata.sourceDocument && (
-        <div className="text-xs text-slate-500">
-          <span className="font-medium text-slate-600">Source:</span> {item.question.metadata.sourceDocument}
-        </div>
-      )}
-
-      {/* Deep Dive + AI Tutor — same component used in post-submit QuestionCard */}
-      <QuestionTutorPanel
-        question={item.question}
-        onDeepDive={onDeepDive}
-        onChatSend={onChatSend}
-        contentRef={contentRef}
-      />
+      {/* Sources, objectives and the Deep Dive + AI Tutor (same as the post-submit QuestionCard), folded until asked for */}
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="flex-1 min-w-[12rem]"><ReviewSources question={item.question} showSourceDocument /></div>
+        <QuestionTutorPanel
+          question={item.question}
+          onDeepDive={onDeepDive}
+          onChatSend={onChatSend}
+          contentRef={contentRef}
+        />
+      </div>
     </div>
   );
 };
