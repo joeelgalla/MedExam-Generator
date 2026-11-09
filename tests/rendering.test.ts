@@ -21,6 +21,9 @@ test('legacy cloud cards retain tutor controls; private cards hide hints and esc
   assert.match(cloud, /Ask the AI Tutor/);
   assert.match(cloud, /Week/);
   assert.doesNotMatch(active, /Synthetic cluster|Synthetic objective|A synthetic explanation|Find supporting passages|Synthetic proof|Synthetic task sampled/);
+  assert.match(active, /Understanding/);
+  assert.match(active, /diagnosis/);
+  assert.match(active, /1\.2/);
   assert.match(review, /A synthetic explanation/);
   assert.match(review, /Unanswered/);
   assert.doesNotMatch(review, /Find supporting passages|AI Tutor/);
