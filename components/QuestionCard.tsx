@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, BrainCircuit, Tag, BookOpen, Flag, Highlighter, 
 import { applyTextMark, emptyMarks, textSegments, type AnnotationTool, type TextMarks } from '../services/textAnnotations';
 import QuestionTutorPanel from './QuestionTutorPanel';
 import ReviewSources from './ReviewSources';
+import { ReportQuestionButton } from './QuestionReports';
 
 const cognitiveLabels: Record<string, string> = { '1.1': 'Recall', '1.2': 'Understanding', '1.3': 'Application' };
 
@@ -242,6 +243,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                             onChatSend={onChatSend}
                             contentRef={cardContentRef}
                         />}
+                        <ReportQuestionButton question={question} where="results" selectedOption={selectedOption} />
                     </div>
                 </div>
             </div>

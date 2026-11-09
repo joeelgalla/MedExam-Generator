@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Favicon
+
+Added a blue "M" favicon (SVG, 32 px PNG and Apple touch icon) to the app and the standalone practice page so the tab is recognizable; it replaces the missing-favicon 404. No script changes. Deployed as 7e44531 (GitHub deployment 7662875728; all three files return 200 with the right content type).
+
 ## 2026-11-09 - Current exam names on headers and resume buttons
 
 A renamed saved exam now shows its current name on the results header, the in-progress banner and the Resume buttons for unfinished attempts, instead of the name copied when the attempt started. Progress tab output is unchanged (compared against 3c0b963 with real attempts). 108 tests, typecheck and build pass.

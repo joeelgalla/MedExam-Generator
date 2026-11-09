@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { ExamAttempt, ExamQuestion, ChatMessage, ObjectiveRegistry } from '../types';
 import QuestionTutorPanel from './QuestionTutorPanel';
 import ReviewSources from './ReviewSources';
+import { ReportQuestionButton } from './QuestionReports';
 import {studyItemKey} from '../services/objectiveCoverage';
 import {
   BarChart3,
@@ -164,6 +165,7 @@ const ReviewRowExpanded: React.FC<ReviewRowExpandedProps> = ({ item, userAnswerT
           onChatSend={onChatSend}
           contentRef={contentRef}
         />
+        <ReportQuestionButton question={item.question} where="progress" selectedOption={item.userAnswer || null} attemptId={item.attemptId} />
       </div>
     </div>
   );
