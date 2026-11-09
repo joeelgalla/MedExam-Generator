@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Report button during exams
+
+A quiet "Report" button beside Flag lets a signed-in learner mark a question for review with an optional comment while the exam is running; it does not change the answer or score. Deployed as 15ca978.
+
 ## 2026-11-09 - Report a problem with a question
 
 After submitting, and in Progress review rows, "Report a problem" lets a signed-in learner mark a question for review with an optional comment; the button then reads "Marked for review" and can be edited or removed. Reports go to a new `question_reports` table with row-level security (own rows only, no anonymous access), outside the synced project document, and keep the chosen answer, key and a short snapshot. Not shown during a running exam or on the standalone practice page. 110 tests (2 new), typecheck and build pass; deployed as 09b4b57.

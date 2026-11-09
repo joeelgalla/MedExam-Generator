@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-09 - Report button during exams (deployed, 15ca978)
+
+Joe looked for "Report a problem" mid-exam and asked for it there. A quiet "Report" text button now sits beside Flag in the question header during a running exam; it opens the same optional comment box as a popover anchored to the header (`relative` on the header row), so it spans the card on phones and is a 22rem box at the right on desktop. Reports from the exam store `where_reported = 'exam'` (migration `question_reports_allow_exam` widened the check constraint; `supabase/migration.sql` updated). The popover text says the report does not change the answer or score. No global key handlers exist, so typing a comment cannot select an answer. 110/110 tests (the exam case now expects the button), typecheck and build pass; checked in a browser at desktop and 375px with no console errors. GitHub deployment 7663665340 success; the live shared chunk `privatePractice-D4MTj56I.js` matches the local build.
+
 ## 2026-11-09 - Report a problem with a question (deployed, 09b4b57)
 
 Joe asked for a way to mark a question for Claude to review, with an optional comment. After submitting (results page) and in Progress review rows, a "Report a problem" pill sits beside "Ask the AI Tutor"; it opens an optional comment box with "Mark for review", then shows "Marked for review" (tap again to edit the comment or remove the mark). Not shown during a running exam (Flag covers that) or on the standalone practice page (no account).
