@@ -633,6 +633,8 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
 
   // --- VIEW: PROJECT WORKSPACE ---
   const { activeExam, examHistory } = activeProject;
+  // Show the saved exam's current name; attempts keep a copy of the name from when they started.
+  const examTitle=(activeProject.savedExams||[]).find(e=>e.examId===activeExam.examId)?.title||activeExam.title;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col print:bg-white">
@@ -720,7 +722,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 print:mb-8">
                  <div className="print:hidden">
                     <h3 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        {activeExam.status === 'completed' ? `${activeExam.title||'Exam'} results` : activeExam.title||'Active exam'}
+                        {activeExam.status === 'completed' ? `${examTitle||'Exam'} results` : examTitle||'Active exam'}
                         {activeExam.difficulty === 'expert' && <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-bold uppercase">Expert</span>}
                         {activeExam.difficulty === 'hard' && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full font-bold uppercase">Hard</span>}
                     </h3>

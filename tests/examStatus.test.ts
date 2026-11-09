@@ -51,7 +51,7 @@ test('exam cards show which sets are done and previous attempts name their set',
     const p=importProject({name:'Synthetic status',blueprint:[],referenceTotalQuestions:40,learningObjectivesFiles:[]},'local','local');
     p.savedExams=[exam('done','Synthetic finished set',['a1','a2','a3','a4']),exam('open','Synthetic open set',['b1','b2','b3','a1']),exam('fresh','Synthetic untouched set',['c1','c2'])];
     p.examHistory=[{id:'att',date:'2026-01-01T12:00:00Z',score:3,totalQuestions:4,answers:{},questions:q(['a1','a2','a3','a4'])}];
-    p.archivedExams=[{...emptyExam(),examId:'open',title:'Synthetic open set',questions:q(['b1','b2','b3','a1']),userAnswers:{1:'A',2:'B'},status:'active'}];
+    p.archivedExams=[{...emptyExam(),examId:'open',title:'Old synthetic name',questions:q(['b1','b2','b3','a1']),userAnswers:{1:'A',2:'B'},status:'active'}];
     const props={onUpdate:()=>{},onStart:()=>{},onError:()=>{},onGenerate:()=>{},onResume:()=>{},onMaterials:()=>{},onProgress:()=>{},onActionConsumed:()=>{},disabled:false};
     export const html=renderToStaticMarkup(<ProjectExamTools {...props} project={p}/>);
   `,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',write:false,packages:'external'});
@@ -73,4 +73,6 @@ test('exam cards show which sets are done and previous attempts name their set',
   const attempts=html.slice(html.indexOf('Previous attempts'));
   assert.match(attempts,/Synthetic finished set/);
   assert.match(attempts,/3\/4 correct/);
+  assert.match(html,/Resume Synthetic open set/,'unfinished attempts use the set\'s current name');
+  assert.doesNotMatch(html,/Old synthetic name/);
 });
