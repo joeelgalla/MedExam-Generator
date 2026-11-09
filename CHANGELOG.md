@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-09 - Current exam names on headers and resume buttons
+
+A renamed saved exam now shows its current name on the results header, the in-progress banner and the Resume buttons for unfinished attempts, instead of the name copied when the attempt started. Progress tab output is unchanged (compared against 3c0b963 with real attempts). 108 tests, typecheck and build pass.
+
+## 2026-11-09 - Exam list shows which sets are done
+
+Finished attempts never recorded which saved exam they came from, so the exam list guessed status from question overlap; once later sets reused bank questions, every card read "Retake exam". Each finished attempt is now linked to the saved exam it matches by question IDs. Finished sets show "Done" with the latest score and a quieter Retake button, sets not taken keep the blue Start button, the heading shows "N of M done", and Previous attempts name the set. Presentational only: no data, scoring or AI changes. 108 tests (4 new), typecheck and build pass; deployed as 165a1f5.
+
 ## 2026-11-09 - Compact answer review
 
 After submitting, each question shows the explanation first. Sources, objectives and the author's note fold into one closed "Sources & objectives (N)" disclosure, listing each source once. The tutor chat opens from an "Ask the AI Tutor" button and keeps its conversation when closed; "Ask about this" on selected text still opens it. Progress review rows get the same treatment, and the header no longer repeats the cluster when a question has no week. Presentational only: no data, scoring or AI changes. 104 tests, typecheck and build pass; deployed as 1c2ec37 (GitHub deployment 7660664613, live chunk checked).
