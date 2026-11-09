@@ -1,5 +1,11 @@
 # Handoff
 
+## 2026-11-09 - Notes on flagged questions (deployed)
+
+Joe asked to add a comment when flagging, "so I know and remember why I flagged something". When a question is flagged during an exam, a quiet "Add note" button (orange, beside Flagged) opens a popover anchored to the question header ("Why did you flag this?"); saving shows a "Why you flagged it: …" line at the top of the question, on the results page and in the Progress review row for that attempt. A blank note deletes it. Notes are private (not for Claude review; that is `question_reports`).
+
+Storage is a new `flag_notes` table (one row per user, project, attempt and question; note 1 to 1,000 characters), outside the `projects` JSONB, with the same RLS pattern as `question_reports` (own rows only, `anon` revoked). Keyed by `attempt_id`, which `beginProjectExam` sets at start and the finished attempt keeps. Rolled-back test as Joe's account: upsert, delete, spoofed `user_id` rejected (42501), empty note rejected (23514). Migration `create_flag_notes` applied. Code: `services/flagNotes.ts`, `services/flagNoteStore.ts` (only `App.tsx` imports it), `components/FlagNotes.tsx`; `App.tsx` wraps the workspace in `FlagNoteScope` with the same signed-in-owner condition as reports. 112/112 tests (2 new), typecheck and build pass; browser-checked in exam, results and Progress views and at 375px.
+
 ## 2026-11-09 - Quieter exam-screen annotation controls (deployed, b31a91e)
 
 Joe said the exam screen was too busy and approved a before/after preview. Presentational only, in `components/QuestionCard.tsx`: smaller tool buttons; the how-to line renders only while a tool is on (an `sr-only` status region stays for screen readers, and the highlight-removal tip moved into the Highlight tooltip); "Clear marks" renders only when something is marked; per-answer cross-out buttons lose their borders (slate-400, darker on hover or when crossed). Browser check: hint appears with a tool on, Clear marks appears after a cross-out and disappears after clearing, no console errors. 110/110 tests, typecheck and build pass. GitHub deployment 7663967820 success; live `privatePractice-4bXv-eej.js` matches the local build and no longer contains the always-on hint.

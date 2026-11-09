@@ -4,6 +4,7 @@ import { ExamAttempt, ExamQuestion, ChatMessage, ObjectiveRegistry } from '../ty
 import QuestionTutorPanel from './QuestionTutorPanel';
 import ReviewSources from './ReviewSources';
 import { ReportQuestionButton } from './QuestionReports';
+import { FlagNoteLine } from './FlagNotes';
 import {studyItemKey} from '../services/objectiveCoverage';
 import {
   BarChart3,
@@ -118,6 +119,7 @@ const ReviewRowExpanded: React.FC<ReviewRowExpandedProps> = ({ item, userAnswerT
 
   return (
     <div ref={contentRef} className="px-4 pb-4 pt-1 bg-slate-50/40 border-t border-slate-100 space-y-3">
+      <FlagNoteLine question={item.question} attemptId={item.attemptId} flagged={item.isFlagged} className="mt-2" />
       {item.question.vignette && (
         <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{item.question.vignette}</p>
       )}

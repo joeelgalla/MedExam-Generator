@@ -63,3 +63,35 @@ CREATE POLICY "Users can delete own question reports" ON question_reports
 
 REVOKE ALL ON question_reports FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON question_reports TO authenticated;
+
+-- Flag notes: a learner's private reason for flagging a question, per attempt.
+-- Kept outside the projects JSONB so notes never enter the sync merge.
+CREATE TABLE IF NOT EXISTS flag_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL,
+  attempt_id TEXT NOT NULL,
+  question_id INTEGER NOT NULL,
+  item_id TEXT,
+  note TEXT NOT NULL CHECK (char_length(note) BETWEEN 1 AND 1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, project_id, attempt_id, question_id)
+);
+
+ALTER TABLE flag_notes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own flag notes" ON flag_notes
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can add own flag notes" ON flag_notes
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own flag notes" ON flag_notes
+  FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own flag notes" ON flag_notes
+  FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+REVOKE ALL ON flag_notes FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON flag_notes TO authenticated;

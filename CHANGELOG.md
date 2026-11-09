@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Notes on flagged questions
+
+Flagging a question during an exam now offers "Add note" for a private reason; the note shows on the question, in results and in Progress. Stored in a new `flag_notes` table with row-level security. 112 tests, typecheck and build pass.
+
 ## 2026-11-09 - Quieter exam-screen annotation controls
 
 Smaller Highlight/Strike out/Erase buttons, the how-to line only while a tool is on, Clear marks only when something is marked, and borderless cross-out buttons beside each answer. Same functions. Deployed as b31a91e.

@@ -21,6 +21,8 @@ import { saveProject, getAllProjects, deleteProject } from './services/storageSe
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { QuestionReportScope } from './components/QuestionReports';
 import { supabaseReportStore } from './services/questionReportStore';
+import { FlagNoteScope } from './components/FlagNotes';
+import { supabaseFlagNoteStore } from './services/flagNoteStore';
 import { logEvent, setTelemetryUser } from './services/telemetryService';
 import { Stethoscope, Loader2, Key, ChevronDown, ChevronUp, Download, ArrowRight, AlertTriangle, History, CheckCheck, BarChart2, Layout, ArrowLeft, SignalMedium, SignalLow, Layers, Hash, Printer, Lock, MessageSquare, User, LogOut, ShieldCheck, UserPlus, LogIn, Settings, Target, Crosshair, Shuffle } from 'lucide-react'; // ADD SETTINGS ICON
 import { useReactToPrint } from 'react-to-print';
@@ -696,6 +698,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow print:max-w-none print:p-0">
         <QuestionReportScope enabled={reportsEnabled} project={activeProject} store={supabaseReportStore}>
+        <FlagNoteScope enabled={reportsEnabled} project={activeProject} store={supabaseFlagNoteStore}>
         {savingToAccount&&<div role="status" className="fixed inset-0 z-50 bg-white/90 flex items-center justify-center p-6 text-center font-semibold">Saving to your account. Your original device copy is kept as a backup…</div>}
         <div className="mb-5 text-sm flex flex-wrap gap-x-4 gap-y-2 items-center justify-between print:hidden"><span role="status" className={saveFailed?'text-red-700 font-semibold':'text-slate-500'}>{saveMessage}</span>{saveFailed&&<><button className="underline" onClick={()=>persist(activeProject)}>Retry save</button><button className="underline" onClick={()=>downloadText(`${activeProject.name}.project-backup.json`,JSON.stringify({format:'medexam-project-backup',version:1,project:activeProject}))}>Download recovery backup</button></>}{activeProject.storageMode==='local'&&(isAuthenticated?<button disabled={savingToAccount||otherTab} className="text-blue-700 underline" onClick={handleSaveToAccount}>{savingToAccount?'Saving…':'Save to my account'}</button>:<a className="text-blue-700 underline" href={`/?signin=1&localProject=${encodeURIComponent(activeProject.id)}`}>Sign in to sync across devices</a>)}</div>
         {error&&activeTab!=='generate'&&<div role="alert" className="p-4 mb-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">{error}</div>}
@@ -839,6 +842,7 @@ Metadata: [${q.metadata.cognitiveLevel}, ${q.metadata.cluster}]
             {!loading&&activeExam.questions.length===0&&<div className="text-center bg-white border rounded-xl p-10"><p className="text-slate-600 mb-4">Choose an exam from your library or create a new one.</p><button className="action-primary" onClick={()=>setActiveTab('overview')}>Go to exams</button></div>}
         </>
         )}
+        </FlagNoteScope>
         </QuestionReportScope>
       </main>
       

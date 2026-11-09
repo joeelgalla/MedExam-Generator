@@ -6,6 +6,7 @@ import { applyTextMark, emptyMarks, textSegments, type AnnotationTool, type Text
 import QuestionTutorPanel from './QuestionTutorPanel';
 import ReviewSources from './ReviewSources';
 import { ReportQuestionButton } from './QuestionReports';
+import { FlagNoteButton, FlagNoteLine } from './FlagNotes';
 
 const cognitiveLabels: Record<string, string> = { '1.1': 'Recall', '1.2': 'Understanding', '1.3': 'Application' };
 
@@ -158,10 +159,12 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                 <Flag className={`w-4 h-4 ${isFlagged ? 'fill-current' : ''}`} />
                 {isFlagged ? 'Flagged' : 'Flag'}
             </button>
+            {isFlagged && <FlagNoteButton question={question} />}
           </div>
         )}
       </div>
 
+      <FlagNoteLine question={question} flagged={isFlagged} className="mx-6 mt-4 print:hidden" />
       <div className="p-6 relative" ref={cardContentRef}
         onPointerDown={() => { selectionGesture.current = false; }}
         onMouseUp={finishSelection}
