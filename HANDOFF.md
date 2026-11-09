@@ -1,10 +1,10 @@
 # Handoff
 
-## 2026-11-09 - Compact answer review (staged on `claude/review-page-cleanup`, not deployed)
+## 2026-11-09 - Compact answer review (deployed, 1c2ec37)
 
 Joe reported the post-submit review page had become a wall of text. Since 2026-10-01 each reviewed question showed the explanation plus one "Passage from the study material" row per quote, an always-visible metadata block (task sampled, LOs, primary objective and every source title/page again), a "Find supporting passages" button and an always-open tutor chat. Presentational change only, no data or AI changes: sources, objectives and the author's note now sit in one closed "Sources & objectives (N)" disclosure (each source listed once: passages grouped by document, then link-only references); the tutor chat opens from an "Ask the AI Tutor" button beside "Find supporting passages" and keeps its conversation when closed; "Ask about this" on selected text opens the chat pre-filled. Same treatment in Progress review rows. The header no longer repeats the cluster when a question has no week. `SourcePassages.tsx` replaced by `ReviewSources.tsx` (added to the practice Tailwind content list).
 
-Typecheck, 104/104 tests (one new) and build pass. Local preview with a private Set 10 fixture (kept outside this repo): full results page 14,137 px to 9,409 px at 1100 px width; select-to-ask, close/reopen, deep dive and Progress review rows checked in a browser. Production is 3c0b963. Deploy only after Joe approves; rollback is reverting the merge on `main`.
+Typecheck, 104/104 tests (one new) and build pass. Local preview with a private Set 10 fixture (kept outside this repo): full results page 14,137 px to 9,409 px at 1100 px width; select-to-ask, close/reopen, deep dive and Progress review rows checked in a browser. Joe approved the preview. `main` was fast-forwarded from 3c0b963 to 1c2ec37 and pushed at 2026-11-09 11:48 EST; tests, typecheck and build were rerun on `main` first. GitHub deployment 7660664613 (Production) reports success, and the live `privatePractice-BTx81gxQ.js` chunk has the same name as the local build and contains the new controls. Not yet checked in a signed-in live session. Rollback: revert 1c2ec37 on `main` and push (about 2 minutes), or promote the previous deployment in the Vercel dashboard.
 
 ## 2026-11-08 - Upgraded question generation default to Gemini 3.8 Flash to prevent 20-question 504 timeouts
 

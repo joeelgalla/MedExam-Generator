@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Compact answer review
+
+After submitting, each question shows the explanation first. Sources, objectives and the author's note fold into one closed "Sources & objectives (N)" disclosure, listing each source once. The tutor chat opens from an "Ask the AI Tutor" button and keeps its conversation when closed; "Ask about this" on selected text still opens it. Progress review rows get the same treatment, and the header no longer repeats the cluster when a question has no week. Presentational only: no data, scoring or AI changes. 104 tests, typecheck and build pass; deployed as 1c2ec37 (GitHub deployment 7660664613, live chunk checked).
+
 ## 2026-11-08 - Upgraded default question generation model to Gemini 3.8 Flash and handled 504 timeouts
 
 Switched `DEFAULT_QUESTION_MODEL` in `lib/server/geminiClient.ts` from `gemini-3.1-pro-preview` to `gemini-3.8-flash`, increased the writer pass timeout in `api/generate.ts` to 210s, and mapped upstream `504 DEADLINE_EXCEEDED` responses to an explicit timeout message in `lib/server/generationError.ts`. Benchmarking on the full 20-question Psychiatry prompt (`142,658` input tokens, `14,062` output tokens) reduced writer + blind-checker execution from >170s (`504 DEADLINE_EXCEEDED`) to 147.1s end-to-end. All 103 tests, TypeScript, and production build pass.
