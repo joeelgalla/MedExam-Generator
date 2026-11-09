@@ -1,5 +1,9 @@
 # Handoff
 
+## 2026-11-09 - Quieter exam-screen annotation controls (deployed, b31a91e)
+
+Joe said the exam screen was too busy and approved a before/after preview. Presentational only, in `components/QuestionCard.tsx`: smaller tool buttons; the how-to line renders only while a tool is on (an `sr-only` status region stays for screen readers, and the highlight-removal tip moved into the Highlight tooltip); "Clear marks" renders only when something is marked; per-answer cross-out buttons lose their borders (slate-400, darker on hover or when crossed). Browser check: hint appears with a tool on, Clear marks appears after a cross-out and disappears after clearing, no console errors. 110/110 tests, typecheck and build pass. GitHub deployment 7663967820 success; live `privatePractice-4bXv-eej.js` matches the local build and no longer contains the always-on hint.
+
 ## 2026-11-09 - Report button during exams (deployed, 15ca978)
 
 Joe looked for "Report a problem" mid-exam and asked for it there. A quiet "Report" text button now sits beside Flag in the question header during a running exam; it opens the same optional comment box as a popover anchored to the header (`relative` on the header row), so it spans the card on phones and is a 22rem box at the right on desktop. Reports from the exam store `where_reported = 'exam'` (migration `question_reports_allow_exam` widened the check constraint; `supabase/migration.sql` updated). The popover text says the report does not change the answer or score. No global key handlers exist, so typing a comment cannot select an answer. 110/110 tests (the exam case now expects the button), typecheck and build pass; checked in a browser at desktop and 375px with no console errors. GitHub deployment 7663665340 success; the live shared chunk `privatePractice-D4MTj56I.js` matches the local build.

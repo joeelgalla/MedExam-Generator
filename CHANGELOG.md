@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Quieter exam-screen annotation controls
+
+Smaller Highlight/Strike out/Erase buttons, the how-to line only while a tool is on, Clear marks only when something is marked, and borderless cross-out buttons beside each answer. Same functions. Deployed as b31a91e.
+
 ## 2026-11-09 - Report button during exams
 
 A quiet "Report" button beside Flag lets a signed-in learner mark a question for review with an optional comment while the exam is running; it does not change the answer or score. Deployed as 15ca978.
