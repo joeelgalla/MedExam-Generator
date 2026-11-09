@@ -20,7 +20,7 @@ test('a report row keeps the context needed to review the question',()=>{
   assert.equal(reportItemId(question(),'exam-1'),'exam-1:3','questions without an item ID are keyed by exam and number');
 });
 
-test('the report button appears only for signed-in projects, beside the review controls',async()=>{
+test('the report button appears only for signed-in projects, beside the review controls and Flag',async()=>{
   const bundle=await build({stdin:{contents:`
     import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server';
     import QuestionCard from './components/QuestionCard';
@@ -42,6 +42,8 @@ test('the report button appears only for signed-in projects, beside the review c
   assert.match(signedIn,/Report a problem/);
   assert.match(signedIn,/Ask the AI Tutor/);
   assert.doesNotMatch(signedIn,/What looks wrong/,'the comment box stays closed until asked for');
-  assert.doesNotMatch(during,/Report a problem/,'no report button while the exam is running');
+  assert.match(during,/>Report<\/button>/,'a quiet Report button sits beside Flag during the exam');
+  assert.match(during,/Flag<\/button>/);
+  assert.doesNotMatch(during,/What looks wrong/);
   assert.doesNotMatch(standalone,/Report a problem/,'no account, no report button');
 });

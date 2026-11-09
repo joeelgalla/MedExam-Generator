@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS question_reports (
   exam_title TEXT,
   attempt_id TEXT,
   question_id INTEGER,
-  where_reported TEXT NOT NULL CHECK (where_reported IN ('results', 'progress')),
+  where_reported TEXT NOT NULL CHECK (where_reported IN ('exam', 'results', 'progress')),
   selected_option TEXT,
   comment TEXT NOT NULL DEFAULT '' CHECK (char_length(comment) <= 2000),
   question_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,

@@ -5,6 +5,7 @@ import { buildReportRow, reportItemId, MAX_REPORT_COMMENT, type QuestionReport, 
 import { linkAttemptsToExams } from '../services/examStatus';
 
 type Target = { question: ExamQuestion; where: ReportPlace; selectedOption: string | null; attemptId?: string | null };
+type ButtonProps = Target & { compact?: boolean };
 type Reports = {
   find: (t: Target) => QuestionReport | undefined;
   save: (t: Target, comment: string) => Promise<void>;
@@ -27,9 +28,11 @@ export function QuestionReportProvider({ project, store, children }: { project: 
   const links = useMemo(() => linkAttemptsToExams(project), [project.examHistory, project.savedExams, project.activeExam]);
   const value = useMemo<Reports>(() => {
     const resolve = (t: Target) => {
-      const attemptId = t.where === 'results' ? project.activeExam.attemptId || null : t.attemptId || null;
-      const examId = t.where === 'results' ? project.activeExam.examId || null : (attemptId && links.get(attemptId)) || null;
-      const examTitle = (project.savedExams || []).find(e => e.examId === examId)?.title || (t.where === 'results' ? project.activeExam.title || null : null);
+      // The exam screen and its results page both show the active exam; Progress rows name their attempt.
+      const current = t.where !== 'progress';
+      const attemptId = current ? project.activeExam.attemptId || null : t.attemptId || null;
+      const examId = current ? project.activeExam.examId || null : (attemptId && links.get(attemptId)) || null;
+      const examTitle = (project.savedExams || []).find(e => e.examId === examId)?.title || (current ? project.activeExam.title || null : null);
       return { question: t.question, where: t.where, selectedOption: t.selectedOption, attemptId, examId, examTitle };
     };
     return {
@@ -52,8 +55,9 @@ export function QuestionReportScope({ enabled, project, store, children }: { ena
   return enabled ? <QuestionReportProvider project={project} store={store}>{children}</QuestionReportProvider> : <>{children}</>;
 }
 
-// A pill beside the tutor controls; the comment box opens full width below.
-export function ReportQuestionButton({ question, where, selectedOption, attemptId }: Target) {
+// After submitting: a pill beside the tutor controls, with the comment box full width below.
+// During an exam (compact): a quiet text button beside Flag, with the comment box as a popover.
+export function ReportQuestionButton({ question, where, selectedOption, attemptId, compact = false }: ButtonProps) {
   const reports = useContext(ReportContext);
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState('');
@@ -70,25 +74,34 @@ export function ReportQuestionButton({ question, where, selectedOption, attemptI
     catch (e) { setError(`Couldn't save: ${(e as Error).message}. Check you're signed in and online, then try again.`); }
     finally { setBusy(false); }
   };
+  const toggle = () => { if (!open) setComment(existing?.comment || ''); setOpen(!open); setError(''); };
+  const panel = <div id={id} className={`${compact ? 'absolute left-3 right-3 top-full z-30 mt-2 sm:left-auto sm:right-4 sm:w-[22rem] shadow-lg text-left' : 'w-full basis-full'} rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm print:hidden`}>
+    <label htmlFor={`${id}-comment`} className="font-medium text-slate-800">What looks wrong? <span className="font-normal text-slate-500">Optional</span></label>
+    <textarea id={`${id}-comment`} rows={3} maxLength={MAX_REPORT_COMMENT} value={comment} onChange={e => setComment(e.target.value)}
+      placeholder="For example: two answers work, the key looks wrong, a typo"
+      className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 text-sm" />
+    {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <button type="button" className="action-primary" disabled={busy} onClick={() => run(() => reports.save(target, comment))}>{existing ? 'Save comment' : 'Mark for review'}</button>
+      {existing && <button type="button" className="action-secondary" disabled={busy} onClick={() => run(() => reports.remove(target))}>Remove mark</button>}
+      <button type="button" className="action-quiet" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+    </div>
+    <p className="mt-2 text-xs text-slate-500">{where === 'exam' ? "Saved to your account for Claude to review. It doesn't change your answer or score." : 'Saved to your account for Claude to review, with your answer and the answer key.'}</p>
+  </div>;
+  // The popover anchors to the question header (its positioned parent) so it stays inside the card on phones.
+  if (compact) return <div className="print:hidden">
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={toggle} title="Report a problem with this question"
+      className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${existing ? 'text-amber-800 bg-amber-100 font-bold' : 'text-slate-400 hover:text-amber-700 hover:bg-amber-50'}`}>
+      <MessageSquareWarning className="w-4 h-4" />{existing ? 'Reported' : 'Report'}
+    </button>
+    {open && panel}
+  </div>;
   return <>
-    <button type="button" aria-expanded={open} aria-controls={id}
-      onClick={() => { if (!open) setComment(existing?.comment || ''); setOpen(!open); setError(''); }}
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={toggle}
       className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border shadow-sm transition-colors print:hidden ${existing ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>
       {existing ? <CheckCircle2 className="w-3 h-3" /> : <MessageSquareWarning className="w-3 h-3" />}
       {existing ? 'Marked for review' : 'Report a problem'}
     </button>
-    {open && <div id={id} className="w-full basis-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm print:hidden">
-      <label htmlFor={`${id}-comment`} className="font-medium text-slate-800">What looks wrong? <span className="font-normal text-slate-500">Optional</span></label>
-      <textarea id={`${id}-comment`} rows={3} maxLength={MAX_REPORT_COMMENT} value={comment} onChange={e => setComment(e.target.value)}
-        placeholder="For example: two answers work, the key looks wrong, a typo"
-        className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 text-sm" />
-      {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button type="button" className="action-primary" disabled={busy} onClick={() => run(() => reports.save(target, comment))}>{existing ? 'Save comment' : 'Mark for review'}</button>
-        {existing && <button type="button" className="action-secondary" disabled={busy} onClick={() => run(() => reports.remove(target))}>Remove mark</button>}
-        <button type="button" className="action-quiet" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
-      </div>
-      <p className="mt-2 text-xs text-slate-500">Saved to your account for Claude to review, with your answer and the answer key.</p>
-    </div>}
+    {open && panel}
   </>;
 }

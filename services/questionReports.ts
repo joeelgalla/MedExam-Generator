@@ -3,7 +3,7 @@ import type { ExamQuestion } from '../types';
 // Question reports live in their own table, outside the synced project
 // document, so marking a question never touches attempts or the bank merge.
 // Row-level security limits every account to its own reports.
-export type ReportPlace = 'results' | 'progress';
+export type ReportPlace = 'exam' | 'results' | 'progress';
 
 export interface QuestionReport {
   id?: string;

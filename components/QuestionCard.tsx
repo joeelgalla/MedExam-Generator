@@ -120,7 +120,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
     <div className={`bg-white rounded-xl shadow-sm border overflow-hidden mb-6 print:shadow-none print:border-black print:mb-8 print:break-inside-avoid transition-all duration-300 ${isFlagged ? 'border-orange-300 ring-1 ring-orange-200' : 'border-slate-200'}`}>
       
       {/* Header Metadata */}
-      <div className={`px-6 py-3 border-b flex flex-wrap gap-3 items-center text-xs text-slate-600 print:bg-transparent print:border-b print:border-gray-300 ${isFlagged ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
+      <div className={`relative px-6 py-3 border-b flex flex-wrap gap-3 items-center text-xs text-slate-600 print:bg-transparent print:border-b print:border-gray-300 ${isFlagged ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
         <span className="font-bold text-slate-900 text-sm">Q{index + 1}</span>
         {!hideMetadata && <>{Boolean(question.metadata.week) && <div className="flex items-center gap-1 print:hidden">
           <BookOpen className="w-3 h-3" /> Week {question.metadata.week}
@@ -145,17 +145,20 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         )}
         {hideMetadata && question.metadata.caseId && <span>Shared case</span>}
         
-        {/* Flag Button */}
+        {/* Report and Flag */}
         {!isSubmitted && (
+          <div className="ml-auto flex items-center gap-1 print:hidden">
+            <ReportQuestionButton question={question} where="exam" selectedOption={selectedOption} compact />
             <button 
                 onClick={onToggleFlag}
                 disabled={interactionDisabled}
-                className={`ml-auto flex items-center gap-1 px-2 py-1 rounded transition-colors print:hidden ${isFlagged ? 'text-orange-600 bg-orange-100 font-bold' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-50'}`}
+                className={`flex items-center gap-1 px-2 py-1 rounded transition-colors print:hidden ${isFlagged ? 'text-orange-600 bg-orange-100 font-bold' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-50'}`}
                 title="Flag for review"
             >
                 <Flag className={`w-4 h-4 ${isFlagged ? 'fill-current' : ''}`} />
                 {isFlagged ? 'Flagged' : 'Flag'}
             </button>
+          </div>
         )}
       </div>
 
