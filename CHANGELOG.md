@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-09 - Report a problem with a question
+
+After submitting, and in Progress review rows, "Report a problem" lets a signed-in learner mark a question for review with an optional comment; the button then reads "Marked for review" and can be edited or removed. Reports go to a new `question_reports` table with row-level security (own rows only, no anonymous access), outside the synced project document, and keep the chosen answer, key and a short snapshot. Not shown during a running exam or on the standalone practice page. 110 tests (2 new), typecheck and build pass; deployed as 09b4b57.
+
 ## 2026-11-09 - Favicon
 
 Added a blue "M" favicon (SVG, 32 px PNG and Apple touch icon) to the app and the standalone practice page so the tab is recognizable; it replaces the missing-favicon 404. No script changes. Deployed as 7e44531 (GitHub deployment 7662875728; all three files return 200 with the right content type).
