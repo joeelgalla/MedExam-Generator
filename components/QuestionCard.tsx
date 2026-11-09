@@ -173,15 +173,15 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                   <button key={tool} type="button" disabled={interactionDisabled} aria-pressed={annotationTool === tool}
                     onMouseDown={event => event.preventDefault()}
                     onClick={() => { if (!annotateSelection(tool)) setAnnotationTool(current => current === tool ? null : tool); }}
-                    className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm transition-colors ${annotationTool === tool ? 'bg-yellow-100 border-yellow-500 text-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    title={`Select text to ${label.toLowerCase()}, or turn this tool on first`}>
-                    <Icon className="w-4 h-4" />{label}
+                    className={`flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors ${annotationTool === tool ? 'bg-yellow-100 border-yellow-500 text-slate-900' : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+                    title={`Select text to ${label.toLowerCase()}, or turn this tool on first${tool === 'highlight' ? '. Select highlighted text and press Highlight again to remove it.' : ''}`}>
+                    <Icon className="w-3.5 h-3.5" />{label}
                   </button>
                 ))}
-                <button type="button" disabled={interactionDisabled || (!crossedOptions.length && !Object.values(marks).some(mark => mark.highlight.length || mark.strike.length))}
-                  onClick={() => { setMarks({}); setCrossedOptions([]); }} className="px-2 py-2 text-sm text-slate-600 underline disabled:opacity-40">Clear marks</button>
+                {(crossedOptions.length > 0 || Object.values(marks).some(mark => mark.highlight.length || mark.strike.length)) && <button type="button" disabled={interactionDisabled}
+                  onClick={() => { setMarks({}); setCrossedOptions([]); }} className="px-1.5 py-1 text-xs text-slate-500 underline hover:text-slate-700">Clear marks</button>}
               </div>
-              <p className="mt-2 text-xs text-slate-500" role="status">{annotationTool ? `${annotationTool === 'highlight' ? 'Highlight' : annotationTool === 'strike' ? 'Strike out' : 'Erase'} is on. Select text to apply; press the tool again to turn it off.` : 'Select text, then choose a tool. Or turn a tool on first.'} Select highlighted text and use Highlight again to remove it.</p>
+              <p className={annotationTool ? 'mt-2 text-xs text-slate-500' : 'sr-only'} role="status">{annotationTool ? `${annotationTool === 'highlight' ? 'Highlight' : annotationTool === 'strike' ? 'Strike out' : 'Erase'} is on. Select text to apply; press the tool again to turn it off.` : ''}</p>
             </div>
         )}
 
@@ -218,7 +218,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
               aria-label={`${crossedOptions.includes(opt) ? 'Restore' : 'Cross out'} option ${opt}`} aria-pressed={crossedOptions.includes(opt)}
               title={`${crossedOptions.includes(opt) ? 'Restore' : 'Cross out'} option ${opt}`}
               onClick={() => setCrossedOptions(previous => previous.includes(opt) ? previous.filter(value => value !== opt) : [...previous, opt])}
-              className={`self-center rounded-lg border p-2 print:hidden ${crossedOptions.includes(opt) ? 'bg-slate-200 text-slate-800 border-slate-400' : 'text-slate-500 border-slate-200 hover:bg-slate-50'}`}><Strikethrough className="w-4 h-4" /></button>}
+              className={`self-center rounded-lg p-2 print:hidden transition-colors ${crossedOptions.includes(opt) ? 'bg-slate-200 text-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}><Strikethrough className="w-4 h-4" /></button>}
             </div>
           ))}
         </div>
